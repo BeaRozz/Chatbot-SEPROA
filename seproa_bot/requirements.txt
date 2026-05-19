@@ -1,0 +1,13 @@
+# --- Framework y Servidor Backend ---
+fastapi
+uvicorn[standard]
+jinja2
+
+# --- Base de Datos ---
+sqlalchemy
+
+# --- Peticiones HTTP (Asíncronas para Telegram) ---
+httpx
+
+# --- Seguridad y Variables de Entorno ---
+python-dotenv
