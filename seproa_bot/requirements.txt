@@ -9,5 +9,8 @@ sqlalchemy
 # --- Peticiones HTTP (Asíncronas para Telegram) ---
 httpx
 
+# --- Inteligencia Artificial ---
+openai
+
 # --- Seguridad y Variables de Entorno ---
 python-dotenv
