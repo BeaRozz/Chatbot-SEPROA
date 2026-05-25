@@ -1,0 +1,22 @@
+<div class="card shadow-sm mb-4">
+    <div class="card-header bg-dark text-white">Servicios</div>
+    <div class="card-body">
+        <table class="table table-hover">
+            {% for s in servicios %}
+            <tr>
+                <td><strong>{{ s.nombre }}</strong><br><small>{{ s.descripcion }}</small></td>
+                <td class="text-end">
+                    <form action="/admin/servicios/delete/{{ s.id }}" method="POST">
+                        <button class="btn btn-sm btn-outline-danger">X</button>
+                    </form>
+                </td>
+            </tr>
+            {% endfor %}
+        </table>
+        <form action="/admin/servicios/add" method="POST" class="row g-2">
+            <div class="col-md-4"><input name="nombre" class="form-control" placeholder="Servicio" required></div>
+            <div class="col-md-6"><input name="descripcion" class="form-control" placeholder="Detalle" required></div>
+            <div class="col-md-2"><button class="btn btn-success w-100">+</button></div>
+        </form>
+    </div>
+</div>

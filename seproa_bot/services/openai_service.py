@@ -9,39 +9,58 @@ load_dotenv()
 client = AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 # Definición robusta del System Prompt
-SYSTEM_PROMPT = """Eres el Asistente Virtual Automatizado de SEPROA (Servicio Profesional de Asesores).
-Tu objetivo principal es brindar atención al cliente de primera calidad, resolver dudas frecuentes y captar prospectos.
+PROMPT_NORMAL = """Eres el Asistente Virtual Automatizado de SEPROA.
+Catálogo de servicios:
+{servicios}
 
-Catálogo de servicios que debes ofrecer:
-- Asesoría fiscal
-- Asesoría contable
-- Asesoría administrativa
-- Defensa fiscal
+Horarios de atención estandarizados:
+{horarios_atencion}
+
+Base de Conocimientos (FAQs):
+{preguntas_frecuentes}
 
 Reglas de interacción:
-1. Tu tono debe ser profesional, corporativo, pero accesible y amigable.
-2. Si el usuario muestra intención de agendar una cita o reunión, detecta esta intención proactivamente y pregúntale en qué fecha y horario le gustaría asistir.
-3. Si el usuario pregunta por la ubicación de la empresa, indícale que SEPROA se encuentra en: Calle 65a No. 264, Residencial Floresta, Mérida, Yucatán.
-4. Mantén tus respuestas concisas y bien formateadas, ideales para leerse rápidamente en la aplicación de Telegram.
-5. Bajo ninguna circunstancia inventes información de servicios que no estén en la lista.
-
-Regla de oro: Tus respuestas deben ser extremadamente breves y directas. Nunca excedas las 50 palabras por mensaje.
+1. Actúa bajo el tono de comunicación '{tono_etiqueta}': {tono_descripcion}
+2. Emojis: {instruccion_emojis}
+3. Mantén tus respuestas muy breves (máximo 50 palabras).
+4. No inventes información.
 """
 
-async def obtener_respuesta_ia(historial_mensajes: list) -> str:
-    """
-    Toma el historial de mensajes formateado y consulta a OpenAI con límite de tokens.
-    """
-    mensajes_api = [{"role": "system", "content": SYSTEM_PROMPT}] + historial_mensajes
+PROMPT_VACACIONES = """Eres el Asistente Virtual de SEPROA. 
+¡REGLA DE ORO! Actualmente la empresa ESTÁ DE VACACIONES y no labora. Regresarán el {fecha_regreso}.
+Tu ÚNICA tarea es informar amablemente al usuario que la empresa está cerrada por vacaciones y cuándo regresan. 
+Bajo NINGUNA circunstancia respondas dudas sobre servicios, precios o agendas. Solo discúlpate e informa del cierre.
+"""
+
+async def obtener_respuesta_ia(
+    historial_mensajes: list, config, tono_etiqueta: str, tono_descripcion: str, 
+    texto_servicios: str, texto_faqs: str, texto_horarios: str
+) -> str:
+    
+    # Evaluar la regla estricta de vacaciones
+    if config.modo_vacaciones:
+        system_prompt_dinamico = PROMPT_VACACIONES.format(fecha_regreso=config.fecha_regreso)
+    else:
+        instruccion_emojis = "Úsalos naturalmente" if config.usa_emojis else "PROHIBIDO usar emojis."
+        system_prompt_dinamico = PROMPT_NORMAL.format(
+            tono_etiqueta=tono_etiqueta,
+            tono_descripcion=tono_descripcion,
+            instruccion_emojis=instruccion_emojis,
+            servicios=texto_servicios,
+            horarios_atencion=texto_horarios,
+            preguntas_frecuentes=texto_faqs
+        )
+
+    mensajes_api = [{"role": "system", "content": system_prompt_dinamico}] + historial_mensajes
 
     try:
         response = await client.chat.completions.create(
             model="gpt-4o-mini",
             messages=mensajes_api,
             temperature=0.7,
-            max_tokens=200 
+            max_tokens=200
         )
         return response.choices[0].message.content
     except Exception as e:
-        print(f"Error al conectar con OpenAI: {e}")
-        return "Una disculpa, en este momento estoy experimentando dificultades técnicas. ¿Podrías intentar de nuevo en un momento?"
+        print(f"Error OpenAI: {e}")
+        return "Disculpa, tengo dificultades técnicas. Intenta en un momento."

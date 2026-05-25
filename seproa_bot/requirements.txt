@@ -14,3 +14,5 @@ openai
 
 # --- Seguridad y Variables de Entorno ---
 python-dotenv
+
+python-multipart

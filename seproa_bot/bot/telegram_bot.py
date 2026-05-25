@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 from dotenv import load_dotenv
 
 from db.database import get_db
-from db.models import Usuario, Mensaje
+from db.models import Usuario, Mensaje, ConfiguracionBot, Servicio, PreguntaFrecuente, HorarioAtencion
 from services.openai_service import obtener_respuesta_ia
 
 load_dotenv()
@@ -16,66 +16,55 @@ router = APIRouter()
 @router.post("/webhook")
 async def telegram_webhook(request: Request, db: Session = Depends(get_db)):
     data = await request.json()
-    
-    if "message" not in data:
-        return {"status": "ok"}
-        
+    if "message" not in data: return {"status": "ok"}
     chat_id_int = data["message"]["chat"]["id"]
     chat_id = str(chat_id_int) 
     texto_usuario = data["message"].get("text", "")
-    
-    if not texto_usuario:
-        return {"status": "ok"}
+    if not texto_usuario: return {"status": "ok"}
 
-    # 1. Gestión de Usuario
     usuario = db.query(Usuario).filter(Usuario.telegram_id == chat_id).first()
     if not usuario:
         usuario = Usuario(telegram_id=chat_id)
         db.add(usuario)
         db.commit()
 
-    # 2. Guardar el nuevo mensaje del usuario
-    # Ajustado a los nombres: telegram_id, rol, contenido
     db.add(Mensaje(telegram_id=chat_id, rol="usuario", contenido=texto_usuario))
     db.commit()
 
-    # 3. Memoria Conversacional (Últimos 6 mensajes)
-    ultimos_mensajes = db.query(Mensaje)\
-        .filter(Mensaje.telegram_id == chat_id)\
-        .order_by(Mensaje.id.desc())\
-        .limit(6)\
-        .all()
-    ultimos_mensajes.reverse()
+    config = db.query(ConfiguracionBot).first()
+    
+    # Extraer catálogos
+    servicios_db = db.query(Servicio).all()
+    faqs_db = db.query(PreguntaFrecuente).all()
+    horarios_db = db.query(HorarioAtencion).all()
 
-    # Formatear el historial leyendo 'rol' y 'contenido'
-    historial_formateado = [
-        {
-            "role": "user" if msg.rol == "usuario" else "assistant", 
-            "content": msg.contenido
-        } 
-        for msg in ultimos_mensajes
-    ]
+    lista_servicios = "\n".join([f"- {s.nombre}: {s.descripcion}" for s in servicios_db]) or "Sin servicios registrados."
+    lista_faqs = "\n\n".join([f"P: {f.pregunta}\nR: {f.respuesta}" for f in faqs_db]) or "Sin FAQs registradas."
+    
+    horarios_str = []
+    for h in horarios_db:
+        if h.es_laboral and h.hora_inicio and h.hora_fin:
+            horarios_str.append(f"{h.dia_semana}: {h.hora_inicio.strftime('%H:%M')} a {h.hora_fin.strftime('%H:%M')}")
+        else:
+            horarios_str.append(f"{h.dia_semana}: Cerrado")
+    lista_horarios = "\n".join(horarios_str) or "Horarios no definidos."
 
-    # 4. Respuesta Inteligente de OpenAI
-    respuesta_inteligente = await obtener_respuesta_ia(historial_formateado)
+    t_etiqueta = config.tono.etiqueta if config and config.tono else "Formal"
+    t_desc = config.tono.descripcion if config and config.tono else "Lenguaje profesional."
 
-    # 5. Guardar la respuesta del bot en la BD
-    db.add(Mensaje(telegram_id=chat_id, rol="bot", contenido=respuesta_inteligente))
+    ultimos = db.query(Mensaje).filter(Mensaje.telegram_id == chat_id).order_by(Mensaje.id.desc()).limit(6).all()
+    ultimos.reverse()
+    historial = [{"role": "user" if m.rol == "usuario" else "assistant", "content": m.contenido} for m in ultimos]
+
+    respuesta_ia = await obtener_respuesta_ia(
+        historial, config, t_etiqueta, t_desc, lista_servicios, lista_faqs, lista_horarios
+    )
+
+    db.add(Mensaje(telegram_id=chat_id, rol="bot", contenido=respuesta_ia))
     db.commit()
 
-    # 6. Enviar a Telegram (Telegram requiere que sea el int original)
     url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
-    payload = {"chat_id": chat_id_int, "text": respuesta_inteligente}
-    
-    # --- PRINTS DE DEBUGGING ---
-    print(f"🤖 IA Respondió: {respuesta_inteligente}")
-    print(f"🔑 Token cargado: {'Sí' if TELEGRAM_TOKEN else 'No'}")
-    
     async with httpx.AsyncClient() as client:
-        respuesta_telegram = await client.post(url, json=payload)
-        
-        # Ver qué nos contesta Telegram al intentar enviarle el mensaje
-        print(f"📡 Estatus Telegram: {respuesta_telegram.status_code}")
-        print(f"📄 Detalle Telegram: {respuesta_telegram.text}")
+        await client.post(url, json={"chat_id": chat_id_int, "text": respuesta_ia})
 
     return {"status": "ok"}

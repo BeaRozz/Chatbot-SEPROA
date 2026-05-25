@@ -1,0 +1,33 @@
+<div class="card shadow-sm mb-4">
+    <div class="card-header bg-info text-white">Gestión de Horarios</div>
+    <div class="card-body">
+        <table class="table table-sm text-center">
+            <thead><tr><th>Día</th><th>Inicio</th><th>Fin</th><th>Acción</th></tr></thead>
+            <tbody>
+                {% for h in horarios %}
+                <tr>
+                    <td>{{ h.dia_semana }}</td>
+                    <td>{{ h.hora_inicio.strftime('%H:%M') }}</td>
+                    <td>{{ h.hora_fin.strftime('%H:%M') }}</td>
+                    <td>
+                        <form action="/admin/horarios/delete/{{ h.id }}" method="POST">
+                            <button class="btn btn-sm btn-outline-danger">X</button>
+                        </form>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        <form action="/admin/horarios/add" method="POST" class="row g-2">
+            <div class="col-md-3">
+                <select name="dia" class="form-select" required>
+                    <option>Lunes</option><option>Martes</option><option>Miércoles</option>
+                    <option>Jueves</option><option>Viernes</option><option>Sábado</option>
+                </select>
+            </div>
+            <div class="col-md-3"><input type="time" name="inicio" class="form-control" required></div>
+            <div class="col-md-3"><input type="time" name="fin" class="form-control" required></div>
+            <div class="col-md-3"><button class="btn btn-primary w-100">Agregar</button></div>
+        </form>
+    </div>
+</div>
