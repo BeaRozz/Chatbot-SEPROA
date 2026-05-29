@@ -94,6 +94,5 @@ OPENAI_API_KEY="TU_LLAVE_PAGADA_DE_OPENAI_AQUI"
 ```bash
 uvicorn main:app --reload
 ```
-
-    * El backend y el webhook se ejecutarán localmente en http://127.0.0.1:8000.
-    * El Panel de Administración Web estará disponible en http://127.0.0.1:8000/admin/config.
+* El backend y el webhook se ejecutarán localmente en http://127.0.0.1:8000.
+* El Panel de Administración Web estará disponible en http://127.0.0.1:8000/admin/config.
