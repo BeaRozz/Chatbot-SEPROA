@@ -1,0 +1,105 @@
+<div class="card shadow-sm border-primary mb-4">
+    <div class="card-header bg-primary text-white fw-bold">⚙️ Configuración e Identidad General</div>
+    <div class="card-body">
+        <form action="/admin/config/save" method="POST">
+            <div class="row">
+                
+                <div class="col-md-6 border-end">
+                    <h5 class="text-primary mb-3">🤖 Personalidad y Mensajes</h5>
+                    
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Tono de voz de la IA</label>
+                        <select name="tono_id" id="tonoSelect" class="form-select" onchange="updateDesc()">
+                            {% for t in tonos %}
+                                <option value="{{ t.id }}" data-desc="{{ t.descripcion }}" 
+                                        {% if config.tono_id == t.id %}selected{% endif %}>
+                                    {{ t.etiqueta }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                        <div class="form-text mt-2 p-2 bg-light border rounded small">
+                            <strong>Directriz para el modelo: </strong><span id="tonoDesc"></span>
+                        </div>
+                    </div>
+
+                    <div class="form-check form-switch mb-3">
+                        <input class="form-check-input" type="checkbox" name="usa_emojis" id="usa_emojis" value="true" {% if config.usa_emojis %}checked{% endif %}>
+                        <label class="form-check-label fw-medium" for="usa_emojis">Permitir que la IA use Emojis</label>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Mensaje de Bienvenida / Saludo</label>
+                        <textarea name="mensaje_saludo" class="form-control" rows="2" required>{{ config.mensaje_saludo if config else '' }}</textarea>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Mensaje de Despedida</label>
+                        <textarea name="mensaje_despedida" class="form-control" rows="2" required>{{ config.mensaje_despedida if config else '' }}</textarea>
+                    </div>
+                </div>
+
+                <div class="col-md-6">
+                    <h5 class="text-warning mb-3">📅 Estado y Datos de Contacto</h5>
+                    
+                    <div class="alert alert-warning border-warning shadow-sm mb-3">
+                        <div class="form-check form-switch mb-2">
+                            <input class="form-check-input" type="checkbox" name="modo_vacaciones" id="modo_vacaciones" value="true" {% if config.modo_vacaciones %}checked{% endif %}>
+                            <label class="form-check-label fw-bold" for="modo_vacaciones">Activar Modo Vacaciones</label>
+                        </div>
+                        <div id="div_fecha_regreso" style="display: {% if config.modo_vacaciones %}block{% else %}none{% endif %};">
+                            <label class="form-label small fw-semibold">¿Qué día reabren las oficinas?</label>
+                            <input type="date" id="inputFechaRegreso" name="fecha_regreso" class="form-control" value="{{ config.fecha_regreso }}">
+                        </div>
+                    </div>
+
+                    <div class="mb-2">
+                        <label class="form-label small fw-semibold">Teléfono de Atención</label>
+                        <input type="text" name="telefono_contacto" class="form-control form-control-sm" value="{{ config.telefono_contacto if config else '' }}" placeholder="Ej: 9991234567" required>
+                    </div>
+
+                    <div class="mb-2">
+                        <label class="form-label small fw-semibold">Correo Electrónico Corporativo</label>
+                        <input type="email" name="correo_contacto" class="form-control form-control-sm" value="{{ config.correo_contacto if config else '' }}" placeholder="Ej: info@seproa.com" required>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold">Dirección / Ubicación Física</label>
+                        <textarea name="ubicacion_contacto" class="form-control form-control-sm" rows="2" placeholder="Dirección completa de las oficinas" required>{{ config.ubicacion_contacto if config else '' }}</textarea>
+                    </div>
+                </div>
+
+            </div>
+            
+            <div class="mt-2">
+                <button type="submit" class="btn btn-primary btn-lg w-100 shadow-sm fw-bold">💾 Guardar Cambios Generales</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    // Control dinámico del despliegue del selector de fecha
+    const toggleVacaciones = document.getElementById('modo_vacaciones');
+    const divFecha = document.getElementById('div_fecha_regreso');
+    const inputFecha = document.getElementById('inputFechaRegreso');
+
+    toggleVacaciones.addEventListener('change', function() {
+        divFecha.style.display = this.checked ? 'block' : 'none';
+        if(this.checked) {
+            // Ponemos como mínimo el día de hoy para evitar fechas pasadas
+            inputFecha.setAttribute('min', new Date().toISOString().split('T')[0]);
+        }
+    });
+
+    // Control dinámico de la descripción del tono
+    function updateDesc() {
+        const select = document.getElementById('tonoSelect');
+        const descSpan = document.getElementById('tonoDesc');
+        if(select && select.options[select.selectedIndex]) {
+            descSpan.textContent = select.options[select.selectedIndex].getAttribute('data-desc');
+        }
+    }
+    
+    // Inicializar la descripción al cargar la página
+    window.addEventListener('DOMContentLoaded', updateDesc);
+</script>
