@@ -62,7 +62,7 @@ seproa_bot/
 └── static/                 # Hojas de estilo (CSS) y recursos del Panel Web
 ```
 
-#⚙️ Instalación y Configuración Local
+# ⚙️ Instalación y Configuración Local
 
 Sigue estos pasos para levantar el proyecto de forma segura en tu máquina:
 
