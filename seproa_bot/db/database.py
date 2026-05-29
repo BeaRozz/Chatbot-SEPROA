@@ -6,7 +6,8 @@ SQLALCHEMY_DATABASE_URL = "sqlite:///./seproa_bot.db"
 
 # Creación del motor. connect_args es necesario solo para SQLite en FastAPI
 engine = create_engine(
-    SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False}
+    SQLALCHEMY_DATABASE_URL, 
+    connect_args={"check_same_thread": False, "timeout": 30} 
 )
 
 # Configuración de la sesión de base de datos

@@ -1,3 +1,5 @@
+from datetime import date
+
 from fastapi import APIRouter, Form, Request, Depends
 from fastapi.responses import RedirectResponse
 from fastapi.templating import Jinja2Templates
@@ -27,7 +29,7 @@ async def guardar_configuracion(
     tono_id: int = Form(...),
     usa_emojis: bool = Form(None),
     modo_vacaciones: bool = Form(None),
-    fecha_regreso: str = Form(None),
+    fecha_regreso: date = Form(None),
     mensaje_saludo: str = Form(...),
     mensaje_despedida: str = Form(...),
     correo_contacto: str = Form(...),

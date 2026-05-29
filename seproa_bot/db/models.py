@@ -14,7 +14,7 @@ class Mensaje(Base):
     __tablename__ = "mensajes"
 
     id = Column(Integer, primary_key=True, index=True)
-    telegram_id = Column(String, ForeignKey("usuarios.telegram_id"))
+    telegram_id = Column(String, ForeignKey("usuarios.telegram_id"), index=True)
     rol = Column(String) # 'usuario' o 'bot'
     contenido = Column(Text)
     fecha = Column(DateTime(timezone=True), server_default=func.now())
