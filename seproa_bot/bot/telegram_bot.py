@@ -5,6 +5,7 @@ from db.database import SessionLocal  # Tu generador de sesiones limpio
 from db.models import Usuario, Mensaje
 from services.openai_service import obtener_respuesta_ia_optimizada
 from dotenv import load_dotenv
+from bot.orquestador import procesar_intencion
 
 load_dotenv()
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
@@ -41,6 +42,7 @@ async def telegram_webhook(request: Request):
 
     # Apertura de sesión síncrona rápida para guardar la entrada    
     db = SessionLocal()
+    es_nuevo_usuario = False
     
     try:
         # 2. Controlar o crear al Usuario
@@ -48,26 +50,33 @@ async def telegram_webhook(request: Request):
         if not usuario:
             usuario = Usuario(telegram_id=chat_id)
             db.add(usuario)
-            db.commit()
+            db.flush()
+            es_nuevo_usuario = True
 
         # 3. Registrar mensaje del usuario en la BD
         db.add(Mensaje(telegram_id=chat_id, rol="usuario", contenido=texto_usuario))
-        db.commit()
+        db.flush()
 
         # 4. Extraer memoria conversacional compacta (últimos 4 mensajes: 2 de usuario, 2 de bot)
         ultimos = db.query(Mensaje).filter(Mensaje.telegram_id == chat_id).order_by(Mensaje.id.desc()).limit(4).all()
         ultimos.reverse()
         historial = [{"role": "user" if m.rol == "usuario" else "assistant", "content": m.contenido} for m in ultimos]
 
-        # 5. Obtener respuesta de IA usando el prompt cacheado en RAM
-        respuesta_ia = await obtener_respuesta_ia_optimizada(historial)
+        # 3. Detectar intención y decidir ruta de respuesta (orquestador)
+        respuesta_final, accion = await procesar_intencion(texto_usuario, historial, es_nuevo_usuario)
 
-        # Enviar respuesta inmediata por red usando el pool global de httpx
+        # 4. EJECUTAR ACCIONES ESPECIALES HTTP
+        if accion == "enviar_mapa":
+            url_location = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendLocation"
+            await http_client.post(url_location, json={
+                "chat_id": chat_id_int, "latitude": 21.0136630685485, "longitude": -89.55584020754324
+            })
+
+        # 5. ENVIAR TEXTO Y GUARDAR
         url_send = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
-        await http_client.post(url_send, json={"chat_id": chat_id_int, "text": respuesta_ia})
+        await http_client.post(url_send, json={"chat_id": chat_id_int, "text": respuesta_final})
 
-        # Registrar la salida de la IA al final de la transacción
-        db.add(Mensaje(telegram_id=chat_id, rol="bot", contenido=respuesta_ia))
+        db.add(Mensaje(telegram_id=chat_id, rol="bot", contenido=respuesta_final))
         db.commit()
 
     except Exception as e:

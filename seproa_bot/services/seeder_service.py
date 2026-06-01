@@ -56,7 +56,7 @@ def precargar_datos(db: Session):
                 HorarioAtencion(
                     dia_semana=dia,
                     hora_inicio=time(9, 0),   # 09:00 AM
-                    hora_fin=time(15, 0),     # 03:00 PM (15:00)
+                    hora_fin=time(17, 0),     # 03:00 PM (15:00)
                     es_laboral=True
                 )
             )
