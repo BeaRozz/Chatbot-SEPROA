@@ -9,14 +9,36 @@ def detectar_intencion_ubicacion(texto: str) -> bool:
     ]
     return any(k in texto.lower() for k in keywords)
 
-def detectar_intencion_transaccional(texto: str) -> bool:
+def detectar_intencion_transaccional(texto_usuario: str, ultimo_mensaje_bot: str = "") -> bool:
+    texto_limpio = texto_usuario.lower()
+    ultimo_bot_limpio = ultimo_mensaje_bot.lower()
+
+    # 1. Palabras clave directas del usuario
     keywords = [
         "reservar", "reserva", "reservacion", "reservación", 
         "cita", "agendar", "agenda", "apartar", "turno", "contratar",
         "asesoría", "fiscal", "contable", "administrativa", "cotización", "precio", "costo"
     ]
-    texto_limpio = texto.lower()
-    return any(k in texto_limpio for k in keywords)
+    if any(k in texto_limpio for k in keywords):
+        return True
+
+    # 2. CONTEXTO: Si el bot acaba de preguntar si quiere agendar, 
+    contexto_citas = ["agendar", "cita", "fecha", "hora", "horario", "día"]
+    if any(c in ultimo_bot_limpio for c in contexto_citas):
+        respuestas_fecha = [
+            "si", "sí", "claro", "por favor", "ok", 
+            "lunes", "martes", "miércoles", "miercoles", "jueves", "viernes",
+            "hoy", "mañana", "tarde", "am", "pm", "hrs", "horas",
+            "enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", 
+            "agosto", "septiembre", "octubre", "noviembre", "diciembre",
+            # Atrapamos si menciona cualquier número del 0 al 9 (ej. "el 28", "a las 8")
+            "0", "1", "2", "3", "4", "5", "6", "7", "8", "9"
+        ]
+        
+        if any(r in texto_limpio for r in respuestas_fecha):
+            return True
+
+    return False
 
 def detectar_saludo(texto: str) -> bool:
     texto_limpio = texto.lower().strip()

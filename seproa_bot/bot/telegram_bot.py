@@ -63,7 +63,7 @@ async def telegram_webhook(request: Request):
         historial = [{"role": "user" if m.rol == "usuario" else "assistant", "content": m.contenido} for m in ultimos]
 
         # 3. Detectar intención y decidir ruta de respuesta (orquestador)
-        respuesta_final, accion = await procesar_intencion(texto_usuario, historial, es_nuevo_usuario)
+        respuesta_final, accion, datos_json = await procesar_intencion(texto_usuario, historial, es_nuevo_usuario)
 
         # 4. EJECUTAR ACCIONES ESPECIALES HTTP
         if accion == "enviar_mapa":
@@ -71,6 +71,14 @@ async def telegram_webhook(request: Request):
             await http_client.post(url_location, json={
                 "chat_id": chat_id_int, "latitude": 21.0136630685485, "longitude": -89.55584020754324
             })
+        
+        if accion == "actualizar_clasificacion" and datos_json:
+            nuevo_servicio = datos_json.get("servicio_detectado")
+            if nuevo_servicio and nuevo_servicio != "General":
+                usuario.clasificacion_principal = nuevo_servicio
+            elif accion == "agendar_calendario":
+                # ¡AQUÍ ES DONDE CONECTAREMOS GOOGLE CALENDAR EN EL SIGUIENTE PASO!
+                print(f"Llamando a Google API para el día {datos_json['fecha']} a las {datos_json['hora']}")
 
         # 5. ENVIAR TEXTO Y GUARDAR
         url_send = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
