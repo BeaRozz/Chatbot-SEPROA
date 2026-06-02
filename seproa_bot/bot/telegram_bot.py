@@ -63,22 +63,53 @@ async def telegram_webhook(request: Request):
         historial = [{"role": "user" if m.rol == "usuario" else "assistant", "content": m.contenido} for m in ultimos]
 
         # 3. Detectar intención y decidir ruta de respuesta (orquestador)
-        respuesta_final, accion, datos_json = await procesar_intencion(texto_usuario, historial, es_nuevo_usuario)
+        respuesta_final, accion, datos_json, nuevo_estado = await procesar_intencion(
+            texto_usuario, 
+            historial, 
+            es_nuevo_usuario, 
+            chat_id,
+            usuario.estado_conversacion
+        )
+
+        # En caso de pasar a modos como "AGENDAMIENTO" o regresar a "NORMAL"
+        if nuevo_estado and nuevo_estado != usuario.estado_conversacion:
+            print(f"🔄 Cambio de Estado BD: {usuario.estado_conversacion} ➡️ {nuevo_estado}")
+            usuario.estado_conversacion = nuevo_estado
 
         # 4. EJECUTAR ACCIONES ESPECIALES HTTP
-        if accion == "enviar_mapa":
+        if accion == "enviar_mapa" or accion == "guardar_cita_db":
             url_location = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendLocation"
             await http_client.post(url_location, json={
                 "chat_id": chat_id_int, "latitude": 21.0136630685485, "longitude": -89.55584020754324
             })
         
-        if accion == "actualizar_clasificacion" and datos_json:
-            nuevo_servicio = datos_json.get("servicio_detectado")
-            if nuevo_servicio and nuevo_servicio != "General":
-                usuario.clasificacion_principal = nuevo_servicio
-            elif accion == "agendar_calendario":
-                # ¡AQUÍ ES DONDE CONECTAREMOS GOOGLE CALENDAR EN EL SIGUIENTE PASO!
-                print(f"Llamando a Google API para el día {datos_json['fecha']} a las {datos_json['hora']}")
+        if accion == "actualizar_clasificacion":
+            if datos_json:
+                nuevo_servicio = datos_json.get("servicio_detectado")
+                if nuevo_servicio and nuevo_servicio != "General":
+                    usuario.clasificacion_principal = nuevo_servicio
+
+        if accion == "guardar_cita_db":
+            if datos_json:
+                from db.models import Cita
+                from datetime import datetime
+                
+                fecha = datos_json.get("fecha")
+                hora = datos_json.get("hora")
+                servicio = datos_json.get("servicio_detectado")
+                google_id = datos_json.get("google_event_id")
+                
+                fecha_hora_obj = datetime.strptime(f"{fecha} {hora}", "%Y-%m-%d %H:%M")
+                
+                nueva_cita = Cita(
+                    usuario_id=usuario.id,
+                    tipo_servicio=servicio,
+                    fecha_hora=fecha_hora_obj,
+                    google_event_id=google_id,
+                    estado="Confirmada"
+                )
+                db.add(nueva_cita)
+                print("💾 Cita guardada correctamente en SQLite local.")
 
         # 5. ENVIAR TEXTO Y GUARDAR
         url_send = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"

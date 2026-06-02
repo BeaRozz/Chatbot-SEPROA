@@ -17,26 +17,28 @@ HERRAMIENTA_EXTRACCION = [
         "type": "function",
         "function": {
             "name": "extraer_datos_cita",
-            "description": "Extrae datos de agendamiento siguiendo reglas de negocio estrictas.",
+            "description": "Extrae datos de agendamiento y controla el estado de confirmación.",
             "parameters": {
                 "type": "object",
                 "properties": {
                     "intencion": {
                         "type": "string",
-                        "enum": ["solo_informacion", "quiere_agendar"],
-                        "description": "Si solo pregunta detalles es 'solo_informacion'. Si pide explícitamente una cita, es 'quiere_agendar'."
+                        "enum": ["solo_informacion", "quiere_agendar"]
                     },
                     "servicio_detectado": {
                         "type": "string",
-                        "enum": ["Fiscal", "Contable", "Administrativa", "General"]
+                        "enum": ["Consultoría Fiscal", "Defensa Fiscal", "Contable", "Administrativa", "General"],
+                        "description": "Separa estrictamente 'Consultoría Fiscal' (dudas, planeación, impuestos) de 'Defensa Fiscal' (auditorías, multas, litigios). En caso de no saber usa 'General'."
                     },
-                    "fecha": {
+                    "fecha": { "type": "string" },
+                    "hora": { "type": "string" },
+                    "email": {
                         "type": "string",
-                        "description": "Fecha en YYYY-MM-DD. Si no la menciona explícitamente o pide algo ilegal, devuelve null."
+                        "description": "Correo electrónico del usuario. Devuelve null si aún no lo ha escrito."
                     },
-                    "hora": {
-                        "type": "string",
-                        "description": "Hora en formato HH:00 (Ej. 09:00, 14:00). SIEMPRE en punto. Si pide fracciones (Ej. 10:30), devuélvela redondeada a la hora más cercana o null si es inválida."
+                    "confirmacion_final": {
+                        "type": "boolean",
+                        "description": "True SOLAMENTE si el bot ya mostró el resumen completo (servicio, fecha, hora, email) y el usuario acaba de responder explícitamente 'Sí' o 'Confirmar'. En cualquier otro caso, False."
                     }
                 },
                 "required": ["intencion", "servicio_detectado"]
@@ -53,13 +55,15 @@ async def obtener_extraccion_ia(historial_mensajes: list, horarios_texto: str) -
     
     prompt_extraccion = f"""Eres el motor de validación de SEPROA. Extrae datos usando la herramienta con estas REGLAS ESTRICTAS E INQUEBRANTABLES:
 
-1. CONTEXTO TEMPORAL ACTUAL: Hoy es {fecha_actual} y son las {hora_actual} en Mérida.
+1. CONTEXTO TEMPORAL ACTUAL: Hoy es {fecha_actual} y son las {hora_actual} en Mérida. No agendes en el pasado.
 2. REGLA DEL PASADO: Está ESTRICTAMENTE PROHIBIDO extraer fechas u horas que ya pasaron. Si el usuario pide algo en el pasado, la fecha y hora deben ser 'null'.
 3. REGLA DE MARGEN (2 HORAS): No se pueden agendar citas urgentes. La hora extraída debe tener al menos 2 horas de diferencia con la hora actual.
 4. REGLA DE HORAS EN PUNTO: Las citas duran 1 hora exacta. Solo puedes extraer horas completas (ej. 09:00, 12:00, 15:00). NUNCA extraigas minutos fraccionados (ej. 10:30, 15:15). Si el usuario pide fracciones, la hora debe ser 'null'.
-5. REGLA DE DISPONIBILIDAD: Estos son nuestros horarios comerciales:
-{horarios_texto}
-Solo extrae horas que caigan dentro de estos bloques. Si pide fuera de horario, la hora debe ser 'null'.
+5. CIERRE DE SUCURSAL: Las citas duran 1 hora. La ÚLTIMA cita permitida es UNA HORA ANTES de la hora de cierre. (Ej. Si en el horario dice que cierran a las 15:00, la última hora en la que puedes agendar es a las 14:00). Si pide a la hora de cierre para la cita, devuelve null en la hora.
+6. CORREO Y CONFIRMACIÓN: Extrae el email si el usuario lo menciona en cualquier formato (ej. correo@gmail.com, "mi correo es...", etc.). La 'confirmacion_final' solo debe ser True si el usuario acepta explícitamente ("sí", "confirmo") después de haberle mostrado el resumen completo.
+7. REGLA DE DISPONIBILIDAD: Estos son nuestros horarios comerciales:
+{horarios_texto} Para agendar una cita la hora debe ser menor al horario de cierre, donde la última hora disponible es exactamente UNA HORA ANTES del cierre.
+Solo extrae horas que caigan dentro de estos bloques. Si pide fuera de horario o justo a la hora de cierre, la hora debe ser 'null'.
 """
 
     mensajes_api = [{"role": "system", "content": prompt_extraccion}] + historial_mensajes

@@ -219,3 +219,6 @@ __marimo__/
 
 #db
 .db
+
+# Google Cloud credentials
+credentials.json
