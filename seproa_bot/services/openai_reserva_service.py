@@ -11,48 +11,51 @@ load_dotenv()
 # Inicializar cliente asíncrono de OpenAI
 client = AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
-# Herramienta para la extracción de intenciones y datos de agendamiento usando OpenAI Function Calling
-HERRAMIENTA_EXTRACCION = [
-    {
-        "type": "function",
-        "function": {
-            "name": "extraer_datos_cita",
-            "description": "Extrae datos de agendamiento y controla el estado de confirmación.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "intencion": {
-                        "type": "string",
-                        "enum": ["solo_informacion", "quiere_agendar"]
-                    },
-                    "servicio_detectado": {
-                        "type": "string",
-                        "enum": ["Consultoría Fiscal", "Defensa Fiscal", "Contable", "Administrativa", "General"],
-                        "description": "Separa estrictamente 'Consultoría Fiscal' (dudas, planeación, impuestos) de 'Defensa Fiscal' (auditorías, multas, litigios). En caso de no saber usa 'General'."
-                    },
-                    "fecha": { "type": "string" },
-                    "hora": { "type": "string" },
-                    "email": {
-                        "type": "string",
-                        "description": "Correo electrónico del usuario. Devuelve null si aún no lo ha escrito."
-                    },
-                    "confirmacion_final": {
-                        "type": "boolean",
-                        "description": "True SOLAMENTE si el bot ya mostró el resumen completo (servicio, fecha, hora, email) y el usuario acaba de responder explícitamente 'Sí' o 'Confirmar'. En cualquier otro caso, False."
-                    }
-                },
-                "required": ["intencion", "servicio_detectado"]
-            }
-        }
-    }
-]
 
-async def obtener_extraccion_ia(historial_mensajes: list, horarios_texto: str) -> dict:
+async def obtener_extraccion_ia(historial_mensajes: list, horarios_texto: str, nombres_servicios: list) -> dict:
     zona_horaria = pytz.timezone('America/Merida')
     ahora = datetime.now(zona_horaria)
     fecha_actual = ahora.strftime('%Y-%m-%d')
     hora_actual = ahora.strftime('%H:%M')
+
+    print(f"⏰ [Extracción IA] Contexto temporal para la IA: Fecha actual: {fecha_actual}, Hora actual: {hora_actual}, servicios {', '.join(nombres_servicios)}")
     
+    # Herramienta para la extracción de intenciones y datos de agendamiento usando OpenAI Function Calling
+    HERRAMIENTA_EXTRACCION = [
+        {
+            "type": "function",
+            "function": {
+                "name": "extraer_datos_cita",
+                "description": "Extrae datos de agendamiento y controla el estado de confirmación.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "intencion": {
+                            "type": "string",
+                            "enum": ["solo_informacion", "quiere_agendar"]
+                        },
+                        "servicio_detectado": {
+                            "type": "string",
+                            "enum": nombres_servicios,
+                            "description": "Clasifica el servicio, separándolos estrictamente entre ellos. Opciones válidas: {', '.join(nombres_servicios)}. Si el usuario no sabe o es otra cosa, usa 'General'."
+                        },
+                        "fecha": { "type": "string" },
+                        "hora": { "type": "string" },
+                        "email": {
+                            "type": "string",
+                            "description": "Correo electrónico del usuario. Devuelve null si aún no lo ha escrito."
+                        },
+                        "confirmacion_final": {
+                            "type": "boolean",
+                            "description": "True SOLAMENTE si el bot ya mostró el resumen completo (servicio, fecha, hora, email) y el usuario acaba de responder explícitamente 'Sí' o 'Confirmar'. En cualquier otro caso, False."
+                        }
+                    },
+                    "required": ["intencion", "servicio_detectado"]
+                }
+            }
+        }
+    ]
+
     prompt_extraccion = f"""Eres el motor de validación de SEPROA. Extrae datos usando la herramienta con estas REGLAS ESTRICTAS E INQUEBRANTABLES:
 
 1. CONTEXTO TEMPORAL ACTUAL: Hoy es {fecha_actual} y son las {hora_actual} en Mérida. No agendes en el pasado.

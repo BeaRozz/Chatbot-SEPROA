@@ -16,7 +16,23 @@ def detectar_intencion_transaccional(texto_usuario: str, ultimo_mensaje_bot: str
         "cita", "agendar", "agenda", "apartar", "turno", "contratar",
         "asesoría", "fiscal", "contable", "administrativa", "cotización", "precio", "costo"
     ]
-    return any(k in texto_limpio for k in keywords)
+    
+    if any(k in texto_limpio for k in keywords):
+        return True
+
+    if ultimo_mensaje_bot:
+        contexto_citas = ["agendar", "cita", "asesoría"]
+        respuestas_afirmativas = ["si", "sí", "claro", "por favor", "ok", "me parece bien", "va", "perfecto", "bueno"]
+        
+        # Verificamos si el bot acaba de hablar de citas
+        if any(c in ultimo_mensaje_bot for c in contexto_citas):
+            # Verificamos si el usuario respondió con una afirmación corta
+            # Separamos por palabras para atrapar "si por favor" o "ok gracias"
+            palabras_usuario = texto_limpio.split()
+            if any(r in palabras_usuario for r in respuestas_afirmativas) or texto_limpio in respuestas_afirmativas:
+                return True
+
+    return False
 
 def detectar_saludo(texto: str) -> bool:
     texto_limpio = texto.lower().strip()

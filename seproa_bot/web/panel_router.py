@@ -111,6 +111,7 @@ async def guardar_configuracion(
 @router.post("/servicios/add")
 async def handle_add_servicio(nombre: str = Form(...), descripcion: str = Form(...), db: Session = Depends(get_db)):
     services.agregar(db, nombre, descripcion)
+    print(f"✅ Servicio '{nombre}' agregado. Sincronizando con el cerebro del bot...")
     sincronizar_cerebro_bot(db) # Alertas dinámicas al bot
     return RedirectResponse(url="/admin/config", status_code=303)
 

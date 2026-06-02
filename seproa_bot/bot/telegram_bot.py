@@ -68,7 +68,8 @@ async def telegram_webhook(request: Request):
             historial, 
             es_nuevo_usuario, 
             chat_id,
-            usuario.estado_conversacion
+            usuario.estado_conversacion,
+            db
         )
 
         # En caso de pasar a modos como "AGENDAMIENTO" o regresar a "NORMAL"
@@ -113,7 +114,7 @@ async def telegram_webhook(request: Request):
 
         # 5. ENVIAR TEXTO Y GUARDAR
         url_send = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
-        await http_client.post(url_send, json={"chat_id": chat_id_int, "text": respuesta_final})
+        await http_client.post(url_send, json={"chat_id": chat_id_int, "text": respuesta_final, "parse_mode": "Markdown"})
 
         db.add(Mensaje(telegram_id=chat_id, rol="bot", contenido=respuesta_final))
         db.commit()

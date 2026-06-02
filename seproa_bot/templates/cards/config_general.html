@@ -78,28 +78,61 @@
 </div>
 
 <script>
-    // Control dinámico del despliegue del selector de fecha
-    const toggleVacaciones = document.getElementById('modo_vacaciones');
-    const divFecha = document.getElementById('div_fecha_regreso');
-    const inputFecha = document.getElementById('inputFechaRegreso');
+    document.addEventListener('DOMContentLoaded', function() {
+        const toggleVacaciones = document.getElementById('modo_vacaciones');
+        const divFecha = document.getElementById('div_fecha_regreso');
+        const inputFecha = document.getElementById('inputFechaRegreso');
+        const btnGuardar = document.querySelector('button[type="submit"]');
 
-    toggleVacaciones.addEventListener('change', function() {
-        divFecha.style.display = this.checked ? 'block' : 'none';
-        if(this.checked) {
-            // Ponemos como mínimo el día de hoy para evitar fechas pasadas
-            inputFecha.setAttribute('min', new Date().toISOString().split('T')[0]);
+        function validarVacaciones() {
+            if (toggleVacaciones.checked) {
+                // Muestra el input de fecha
+                divFecha.style.display = 'block';
+                inputFecha.setAttribute('min', new Date().toISOString().split('T')[0]);
+                
+                // Si el switch está ON pero NO hay fecha seleccionada: BLOQUEO INMEDIATO
+                if (!inputFecha.value) {
+                    btnGuardar.disabled = true;
+                    btnGuardar.innerText = "🛑 Selecciona fecha de regreso";
+                    btnGuardar.classList.remove("btn-primary");
+                    btnGuardar.classList.add("btn-secondary");
+                } else {
+                    // Si el switch está ON y SÍ hay fecha: LIBERADO
+                    btnGuardar.disabled = false;
+                    btnGuardar.innerText = "💾 Guardar Cambios Generales";
+                    btnGuardar.classList.remove("btn-secondary");
+                    btnGuardar.classList.add("btn-primary");
+                }
+            } else {
+                // Si el switch está OFF: LIBERADO Y SE OCULTA LA FECHA
+                divFecha.style.display = 'none';
+                btnGuardar.disabled = false;
+                btnGuardar.innerText = "💾 Guardar Cambios Generales";
+                btnGuardar.classList.remove("btn-secondary");
+                btnGuardar.classList.add("btn-primary");
+            }
+        }
+
+        if(toggleVacaciones && inputFecha) {
+            // Escuchamos los cambios en tiempo real
+            toggleVacaciones.addEventListener('change', validarVacaciones);
+            inputFecha.addEventListener('input', validarVacaciones);
+            validarVacaciones(); // Ejecutamos la validación al cargar la página
+        }
+
+        // Control dinámico de la descripción del tono
+        function updateDesc() {
+            const select = document.getElementById('tonoSelect');
+            const descSpan = document.getElementById('tonoDesc');
+            if(select && select.options[select.selectedIndex]) {
+                descSpan.textContent = select.options[select.selectedIndex].getAttribute('data-desc');
+            }
+        }
+        
+        const tonoSelect = document.getElementById('tonoSelect');
+        if (tonoSelect) {
+            tonoSelect.addEventListener('change', updateDesc);
+            updateDesc();
         }
     });
-
-    // Control dinámico de la descripción del tono
-    function updateDesc() {
-        const select = document.getElementById('tonoSelect');
-        const descSpan = document.getElementById('tonoDesc');
-        if(select && select.options[select.selectedIndex]) {
-            descSpan.textContent = select.options[select.selectedIndex].getAttribute('data-desc');
-        }
-    }
-    
-    // Inicializar la descripción al cargar la página
-    window.addEventListener('DOMContentLoaded', updateDesc);
 </script>
