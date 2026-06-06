@@ -17,7 +17,7 @@ def precargar_datos(db: Session):
         db.add_all([
             Servicio(nombre="Consultoría Fiscal", descripcion="Análisis y planificación para optimizar impuestos, revisión del cumplimiento de obligaciones fiscales, estrategias para deducciones y beneficios fiscales, atención derequerimientos del SAT y asesoría sobre regímenes fiscales."),
             Servicio(nombre="Consultoría Contable", descripcion="Incluye asesoría en el manejo y organización de la contabilidad, revisión de estados financieros, cumplimiento de normativas contables, optimización de procesos contables y apoyo en la toma de decisiones financieras."),
-            Servicio(nombre="Aseoría Administrativa", descripcion="Incluye la optimización de procesos internos, gestión eficiente de recursos, mejora en la toma de decisiones, implementación de estrategias organizacionales y apoyo en la planificación y control administrativo."),
+            Servicio(nombre="Asesoría Administrativa", descripcion="Incluye la optimización de procesos internos, gestión eficiente de recursos, mejora en la toma de decisiones, implementación de estrategias organizacionales y apoyo en la planificación y control administrativo."),
             Servicio(nombre="Servicio de Defensa Fiscal", descripcion="Incluye la representación y asesoría en procedimientos fiscales, atención de auditorías y revisiones del SAT, interposición de recursos de defensa, gestión de amparos y estrategias legales para la protección de los derechos del contribuyente.")
         ])
         db.commit()

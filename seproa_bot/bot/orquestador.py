@@ -49,7 +49,7 @@ async def procesar_intencion(texto_usuario: str, historial: list, es_nuevo_usuar
         # Desactivar modo vacaciones automáticamente si ya pasó la fecha de regreso
         if date.today() >= fecha_regreso:
             print("🌅 Las vacaciones terminaron. Apagando modo vacaciones automáticamente...")
-            from db.models import ConfiguracionBot
+            # from db.models import ConfiguracionBot
 
             config = db.query(ConfiguracionBot).first()
             if config:
@@ -184,7 +184,18 @@ async def procesar_intencion(texto_usuario: str, historial: list, es_nuevo_usuar
         datos["google_event_id"] = google_event_id 
 
         print("📧 Enviando correo al cliente...")
-        await enviar_correo_confirmacion(email, fecha, hora, servicio)
+
+        config = db.query(ConfiguracionBot).first()
+        if config and config.ubicacion_contacto:
+            ubicacion_empresa = config.ubicacion_contacto
+        else:
+            ubicacion_empresa = "Calle 65a No. 264, Residencial Floresta, Mérida, Yucatán."
+
+        await enviar_correo_confirmacion(email, fecha, hora, servicio, ubicacion_empresa)
+
+
+        respuesta_exito = f"✅ **¡Tu cita ha sido agendada con éxito!**\n\nTe esperamos el {fecha} a las {hora}. 🗺️ Te comparto nuestra ubicación."
+        return limpiar_emojis(respuesta_exito), "guardar_cita_db", datos, "NORMAL"
 
         respuesta_exito = (
             f"✅ **¡Tu cita ha sido agendada con éxito en nuestro calendario corporativo!**\n\n"
@@ -213,4 +224,13 @@ async def procesar_intencion(texto_usuario: str, historial: list, es_nuevo_usuar
     else:
         print("🧠 [Ruta] Consulta General -> LLM OpenAI")
         respuesta_llm = await obtener_respuesta_ia_optimizada(historial)
-        return respuesta_llm, None, None, estado_actual
+
+        if "ACTIVAR_AGENDA" in respuesta_llm:
+            # 1. Borramos la etiqueta secreta para que el usuario no la vea
+            respuesta_limpia = respuesta_llm.replace("[ACTIVAR_AGENDA]", "").replace("ACTIVAR_AGENDA", "").strip()            
+            
+            # 2. Retornamos la respuesta limpia y ordenamos cambiar el estado de BD a "AGENDANDO"
+            print("🔄 [ORQUESTADOR] El LLM solicitó transición de estado a AGENDANDO.")
+            return limpiar_emojis(respuesta_limpia), None, None, "AGENDANDO"
+            
+        return limpiar_emojis(respuesta_llm), None, None, estado_actual

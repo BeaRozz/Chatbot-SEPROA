@@ -66,6 +66,7 @@ async def obtener_extraccion_ia(historial_mensajes: list, horarios_texto: str, n
 6. CORREO Y CONFIRMACIÓN: Extrae el email si el usuario lo menciona en cualquier formato (ej. correo@gmail.com, "mi correo es...", etc.). La 'confirmacion_final' solo debe ser True si el usuario acepta explícitamente ("sí", "confirmo") después de haberle mostrado el resumen completo.
 7. REGLA DE DISPONIBILIDAD: Estos son nuestros horarios comerciales:
 {horarios_texto} Para agendar una cita la hora debe ser menor al horario de cierre, donde la última hora disponible es exactamente UNA HORA ANTES del cierre.
+8. ACTUALIZACIÓN DINÁMICA (CORRECCIONES): Siempre debes darle prioridad absoluta al ÚLTIMO mensaje del usuario. Si el usuario cambia de opinión, se corrige o propone un nuevo día/hora (ej. "no, mejor el martes"), DEBES actualizar tu extracción con el nuevo dato y descartar el anterior.
 Solo extrae horas que caigan dentro de estos bloques. Si pide fuera de horario o justo a la hora de cierre, la hora debe ser 'null'.
 """
 
