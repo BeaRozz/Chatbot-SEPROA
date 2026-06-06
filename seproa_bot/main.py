@@ -1,5 +1,6 @@
 # main.py
 from fastapi import FastAPI
+from fastapi.concurrency import asynccontextmanager
 from db.database import engine, Base, SessionLocal
 from bot.telegram_bot import router as bot_router
 from web.panel_router import router as panel_router
@@ -8,6 +9,9 @@ from web.panel_router import router as panel_router
 from services.seeder_service import precargar_datos
 from services.openai_service import validar_y_reconstruir_prompt
 from db.models import ConfiguracionBot, Servicio, PreguntaFrecuente, HorarioAtencion
+
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from services.recordatorios import procesar_recordatorios_24h
 
 # 1. Crear las tablas en la BD si no existen al iniciar
 Base.metadata.create_all(bind=engine)
@@ -45,8 +49,24 @@ except Exception as e:
 finally:
     db.close() # Cierre seguro de la conexión inicial
 
-# 3. Inicializar la aplicación de FastAPI
-app = FastAPI(title="SEPROA Chatbot Empresarial")
+# 3. Configurar el Scheduler para recordatorios de citas
+scheduler = AsyncIOScheduler()
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # --- Todo lo que está antes del 'yield' ocurre al ENCENDER el servidor ---
+    scheduler.add_job(procesar_recordatorios_24h, 'interval', minutes=1)
+    scheduler.start()
+    print("⏰ Programador de recordatorios activado y corriendo en segundo plano.")
+    
+    yield # Aquí el servidor se queda "pausado" funcionando y recibiendo mensajes
+    
+    # --- Todo lo que está después del 'yield' ocurre al APAGAR el servidor (Ctrl+C) ---
+    scheduler.shutdown()
+    print("🛑 Programador de recordatorios detenido de forma segura.")
+
+# 4. Inicializar la aplicación de FastAPI
+app = FastAPI(title="SEPROA Chatbot Empresarial", lifespan=lifespan)
 
 # Conectamos las rutas de los módulos individuales
 app.include_router(bot_router)

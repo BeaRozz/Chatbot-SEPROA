@@ -99,6 +99,7 @@ async def telegram_webhook(request: Request):
                 hora = datos_json.get("hora")
                 servicio = datos_json.get("servicio_detectado")
                 google_id = datos_json.get("google_event_id")
+                email = datos_json.get("email")
                 
                 fecha_hora_obj = datetime.strptime(f"{fecha} {hora}", "%Y-%m-%d %H:%M")
                 
@@ -107,7 +108,8 @@ async def telegram_webhook(request: Request):
                     tipo_servicio=servicio,
                     fecha_hora=fecha_hora_obj,
                     google_event_id=google_id,
-                    estado="Confirmada"
+                    estado="Confirmada",
+                    email_usuario=email
                 )
                 db.add(nueva_cita)
                 print("💾 Cita guardada correctamente en SQLite local.")

@@ -42,6 +42,8 @@ class Cita(Base):
     # Relación inversa
     usuario = relationship("Usuario", back_populates="citas")
 
+    email_usuario = Column(String, nullable=True) # Guardar el email del usuario para enviar recordatorios por correo
+
 # Tabla de mensajes
 class Mensaje(Base):
     __tablename__ = "mensajes"

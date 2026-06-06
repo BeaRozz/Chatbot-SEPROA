@@ -193,10 +193,6 @@ async def procesar_intencion(texto_usuario: str, historial: list, es_nuevo_usuar
 
         await enviar_correo_confirmacion(email, fecha, hora, servicio, ubicacion_empresa)
 
-
-        respuesta_exito = f"✅ **¡Tu cita ha sido agendada con éxito!**\n\nTe esperamos el {fecha} a las {hora}. 🗺️ Te comparto nuestra ubicación."
-        return limpiar_emojis(respuesta_exito), "guardar_cita_db", datos, "NORMAL"
-
         respuesta_exito = (
             f"✅ **¡Tu cita ha sido agendada con éxito en nuestro calendario corporativo!**\n\n"
             f"**Servicio:** Asesoría {servicio}\n"
@@ -227,10 +223,11 @@ async def procesar_intencion(texto_usuario: str, historial: list, es_nuevo_usuar
 
         if "ACTIVAR_AGENDA" in respuesta_llm:
             # 1. Borramos la etiqueta secreta para que el usuario no la vea
-            respuesta_limpia = respuesta_llm.replace("[ACTIVAR_AGENDA]", "").replace("ACTIVAR_AGENDA", "").strip()            
+            respuesta_limpia = respuesta_llm.replace("[ACTIVAR_AGENDA]", "").strip()            
+            respuesta_limpia_second_check = respuesta_limpia.replace("ACTIVAR_AGENDA", "").strip()
             
             # 2. Retornamos la respuesta limpia y ordenamos cambiar el estado de BD a "AGENDANDO"
             print("🔄 [ORQUESTADOR] El LLM solicitó transición de estado a AGENDANDO.")
-            return limpiar_emojis(respuesta_limpia), None, None, "AGENDANDO"
+            return limpiar_emojis(respuesta_limpia_second_check), None, None, "AGENDANDO"
             
         return limpiar_emojis(respuesta_llm), None, None, estado_actual
