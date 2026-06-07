@@ -1,0 +1,9 @@
+{% for msg in mensajes %}
+    <div class="flex flex-col {{ 'items-end' if msg.rol == 'bot' else 'items-start' }}">
+        <div class="max-w-md px-4 py-2 rounded-lg shadow-sm text-sm
+            {{ 'bg-blue-600 text-white rounded-br-none' if msg.rol == 'bot' else 'bg-white text-gray-800 rounded-bl-none border border-gray-200' }}">
+            {{ msg.contenido }}
+        </div>
+        <span class="text-xxs text-gray-400 mt-1 px-1">Rol: {{ msg.rol }}</span>
+    </div>
+{% endfor %}

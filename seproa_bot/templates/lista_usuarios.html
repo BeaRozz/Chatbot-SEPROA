@@ -1,0 +1,16 @@
+{% for usuario in usuarios %}
+<div class="p-4 border-b border-gray-100 hover:bg-gray-50 transition cursor-pointer flex justify-between items-center"
+     hx-get="/admin/conversaciones/detalle/{{ usuario.id }}" 
+     hx-target="#panel-chat-derecho"
+     hx-swap="innerHTML">
+    <div>
+        <p class="font-medium text-gray-800">ID: {{ usuario.telegram_id }}</p>
+        <p class="text-xs text-gray-500">Estado de flujo: {{ usuario.estado_conversacion }}</p>
+    </div>
+    
+    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-opacity-10 
+                 {{ 'bg-green-100 text-green-800' if not usuario.esta_intervenido else 'bg-red-100 text-red-800' }}">
+        ● {{ 'IA' if not usuario.esta_intervenido else 'Humano' }}
+    </span>
+</div>
+{% endfor %}

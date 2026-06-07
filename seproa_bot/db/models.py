@@ -14,6 +14,7 @@ class Usuario(Base):
     clasificacion_principal = Column(String, default="General")
 
     estado_conversacion = Column(String, default="NORMAL")
+    esta_intervenido = Column(Boolean, default=False)
 
     fecha_registro = Column(DateTime(timezone=True), server_default=func.now())
     citas = relationship("Cita", back_populates="usuario")

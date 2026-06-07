@@ -1,6 +1,7 @@
 # main.py
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.concurrency import asynccontextmanager
+from fastapi.responses import JSONResponse
 from db.database import engine, Base, SessionLocal
 from bot.telegram_bot import router as bot_router
 from web.panel_router import router as panel_router
@@ -74,4 +75,16 @@ app.include_router(panel_router)
 
 @app.get("/")
 async def root():
-    return {"message": "Servidor SEPROA activo, caché sincronizada y listo."}
+    return {
+        "status": "online",
+        "service": "SEPROA Chatbot Empresarial",
+        "version": "1.0.0",
+        "cache": "sincronizada"
+    }
+
+@app.exception_handler(404)
+async def custom_404_handler(request: Request, __):
+    return JSONResponse(
+        status_code=404,
+        content={"error": "Ruta no encontrada", "message": "Estás intentando acceder a una sección inexistente de SEPROA."}
+    )

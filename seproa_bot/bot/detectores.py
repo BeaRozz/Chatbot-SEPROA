@@ -21,8 +21,8 @@ def detectar_intencion_transaccional(texto_usuario: str, ultimo_mensaje_bot: str
         return True
 
     if ultimo_mensaje_bot:
-        contexto_citas = ["agendar", "cita", "asesoría"]
-        respuestas_afirmativas = ["si", "sí", "claro", "por favor", "ok", "me parece bien", "va", "perfecto", "bueno"]
+        contexto_citas = ["agendar", "cita", "asesoría", "citas", "detalles"]
+        respuestas_afirmativas = ["si", "sí", "claro", "por favor", "ok", "me parece bien", "va", "perfecto", "bueno", "lunes", "martes", "miércoles", "miercoles", "jueves", "viernes", "sábado", "sabado", "domingo"]
         
         # Verificamos si el bot acaba de hablar de citas
         if any(c in ultimo_mensaje_bot for c in contexto_citas):
