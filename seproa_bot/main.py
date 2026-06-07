@@ -1,5 +1,6 @@
 # main.py
 from fastapi import FastAPI, Request
+from fastapi.staticfiles import StaticFiles
 from fastapi.concurrency import asynccontextmanager
 from fastapi.responses import JSONResponse
 from db.database import engine, Base, SessionLocal
@@ -68,6 +69,9 @@ async def lifespan(app: FastAPI):
 
 # 4. Inicializar la aplicación de FastAPI
 app = FastAPI(title="SEPROA Chatbot Empresarial", lifespan=lifespan)
+
+# Montar archivos estáticos
+app.mount("/static", StaticFiles(directory="static"), name="static")
 
 # Conectamos las rutas de los módulos individuales
 app.include_router(bot_router)

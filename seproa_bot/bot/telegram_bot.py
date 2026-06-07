@@ -52,12 +52,32 @@ async def telegram_webhook(request: Request):
         db.add(Mensaje(telegram_id=chat_id, rol="usuario", contenido=texto_usuario))
         db.commit()
 
-        # Notificar entrada por WebSocket
-        await manager.broadcast("update", channel=f"chat_{usuario.id}")
+        # 🔥 ACTUALIZACIÓN OOB: El administrador ve el mensaje del usuario instantáneamente
+        html_mensaje = f"""
+        <div id="contenedor-mensajes-lista" hx-swap-oob="beforeend">
+            <div class="flex flex-col items-start">
+                <div class="max-w-md px-4 py-2 rounded-lg shadow-sm text-sm bg-white text-gray-800 rounded-bl-none border border-gray-200">
+                    {texto_usuario}
+                </div>
+                <span class="text-xxs text-gray-400 mt-1 px-1">Rol: usuario</span>
+            </div>
+        </div>
+        """
+        await manager.broadcast(html_mensaje, channel=f"chat_{usuario.id}")
         await manager.broadcast("update", channel="global")
 
         if usuario.esta_intervenido:
-            print(f"🚨 [INTERVENCIÓN] Usuario {chat_id} está bajo control humano.")
+            print(f"🚨 [INTERVENCIÓN] Usuario {chat_id} está bajo control humano. Bloqueando IA.")
+            return {"status": "ok"}
+
+        # ⏳ RETRASO ESTRATÉGICO: Damos 2 segundos al administrador para leer e intervenir si lo desea
+        import asyncio
+        await asyncio.sleep(2)
+        
+        # RE-VALIDACIÓN DE INTERVENCIÓN (Post-espera)
+        db.refresh(usuario)
+        if usuario.esta_intervenido:
+            print(f"🚨 [INTERVENCIÓN] El administrador tomó el control durante la espera. Cancelando IA.")
             return {"status": "ok"}
 
         # 4. Extraer historial corto para la IA
@@ -74,6 +94,12 @@ async def telegram_webhook(request: Request):
             usuario.estado_conversacion,
             db
         )
+
+        # FINAL CHECK: ¿Intervino mientras la IA generaba la respuesta?
+        db.refresh(usuario)
+        if usuario.esta_intervenido:
+            print(f"🚨 [INTERVENCIÓN] El administrador tomó el control durante la generación. Descartando respuesta de IA.")
+            return {"status": "ok"}
 
         if nuevo_estado and nuevo_estado != usuario.estado_conversacion:
             usuario.estado_conversacion = nuevo_estado
@@ -117,8 +143,18 @@ async def telegram_webhook(request: Request):
         db.add(Mensaje(telegram_id=chat_id, rol="bot", contenido=respuesta_final))
         db.commit()
 
-        # Notificar respuesta por WebSocket
-        await manager.broadcast("update", channel=f"chat_{usuario.id}")
+        # 🔥 ACTUALIZACIÓN OOB: El administrador ve la respuesta del bot instantáneamente
+        html_respuesta = f"""
+        <div id="contenedor-mensajes-lista" hx-swap-oob="beforeend">
+            <div class="flex flex-col items-end">
+                <div class="max-w-md px-4 py-2 rounded-lg shadow-sm text-sm bg-blue-600 text-white rounded-br-none">
+                    {respuesta_final}
+                </div>
+                <span class="text-xxs text-gray-400 mt-1 px-1">Rol: bot</span>
+            </div>
+        </div>
+        """
+        await manager.broadcast(html_respuesta, channel=f"chat_{usuario.id}")
 
     except Exception as e:
         print(f"❌ ERROR WEBHOOK: {e}")

@@ -167,7 +167,7 @@ def ver_detalle(usuario_id: int, request: Request, db: Session = Depends(get_db)
     usuario = db.query(Usuario).filter(Usuario.id == usuario_id).first()
     if not usuario:
         return RedirectResponse(url="/admin/conversaciones")
-    mensajes = db.query(Mensaje).filter(Mensaje.telegram_id == usuario.telegram_id).order_by(Mensaje.id.desc()).limit(50).all()
+    mensajes = db.query(Mensaje).filter(Mensaje.telegram_id == usuario.telegram_id).order_by(Mensaje.id.desc()).limit(30).all()
     mensajes.reverse()
     return templates.TemplateResponse(
         request=request, 
@@ -180,7 +180,7 @@ def obtener_solo_mensajes(usuario_id: int, request: Request, db: Session = Depen
     usuario = db.query(Usuario).filter(Usuario.id == usuario_id).first()
     if not usuario:
         return ""
-    mensajes = db.query(Mensaje).filter(Mensaje.telegram_id == usuario.telegram_id).order_by(Mensaje.id.desc()).limit(50).all()
+    mensajes = db.query(Mensaje).filter(Mensaje.telegram_id == usuario.telegram_id).order_by(Mensaje.id.desc()).limit(30).all()
     mensajes.reverse() 
     return templates.TemplateResponse(
         request=request, 
@@ -206,6 +206,13 @@ async def intervenir(usuario_id: int, request: Request, db: Session = Depends(ge
     if usuario:
         usuario.esta_intervenido = not usuario.esta_intervenido
         db.commit()
+        
+        # Notificar cambios vía WebSocket para actualización inmediata en UI
+        await manager.broadcast("update", channel=f"chat_{usuario.id}")
+        await manager.broadcast("update", channel="global")
+        
+        print(f"🔌 [UI] Usuario {usuario.id} intervención: {usuario.esta_intervenido}")
+
     return ver_detalle(usuario_id, request, db)
 
 @router.post("/conversaciones/enviar-mensaje")
@@ -226,7 +233,18 @@ async def enviar_mensaje_humano(
         
         background_tasks.add_task(tarea_enviar_telegram, chat_id, mensaje, usuario.id)
         
-        await manager.broadcast("update", channel=f"chat_{usuario.id}")
+        # 🔥 ACTUALIZACIÓN OOB: El administrador ve su propio mensaje enviado instantáneamente
+        html_mensaje = f"""
+        <div id="contenedor-mensajes-lista" hx-swap-oob="beforeend">
+            <div class="flex flex-col items-end">
+                <div class="max-w-md px-4 py-2 rounded-lg shadow-sm text-sm bg-blue-600 text-white rounded-br-none">
+                    [HUMANO]: {mensaje}
+                </div>
+                <span class="text-xxs text-gray-400 mt-1 px-1">Rol: bot</span>
+            </div>
+        </div>
+        """
+        await manager.broadcast(html_mensaje, channel=f"chat_{usuario.id}")
         await manager.broadcast("update", channel="global")
         
         return ver_detalle(usuario.id, request, db)
