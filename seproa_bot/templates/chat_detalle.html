@@ -16,7 +16,7 @@
     <div id="contenedor-mensajes-lista" 
          class="flex-1 overflow-y-auto p-4 space-y-3"
          hx-get="/admin/conversaciones/mensajes/{{ usuario.id }}"
-         hx-trigger="load"
+         hx-trigger="load, every 4s"
          hx-swap="innerHTML">
         {% include 'mensajes_lista.html' %}
         <div id="final-del-chat"></div>
@@ -24,45 +24,21 @@
 
     <script>
         (function() {
-            const container = document.getElementById('panel-chat-contenedor');
             const listContainer = document.getElementById('contenedor-mensajes-lista');
-            const protocol = window.location.protocol === 'https:' ? 'wss://' : 'ws://';
-            const wsUrl = protocol + window.location.host + '/admin/ws/chat_{{ usuario.id }}';
             
-            if (container) {
-                container.setAttribute('ws-connect', wsUrl);
-                htmx.process(container);
-            }
-
             const forceScrollBottom = () => {
                 if (!listContainer) return;
-                // Fuerza bruta: Al final absoluto instantáneamente
                 listContainer.scrollTop = listContainer.scrollHeight;
             };
 
-            // Ejecutar al terminar cualquier swap de HTMX (mensajes nuevos)
+            // Scroll al cargar
+            setTimeout(forceScrollBottom, 50);
+
+            // Scroll en cada actualización de HTMX (Polling)
             document.body.addEventListener('htmx:afterSettle', function(evt) {
                 if (evt.detail.target.id === 'contenedor-mensajes-lista') {
                     forceScrollBottom();
                 }
-            });
-
-            // Observador de mutaciones para inyecciones WebSocket OOB
-            const observer = new MutationObserver(() => {
-                forceScrollBottom();
-                // Reintento por si hay imágenes o carga lenta
-                setTimeout(forceScrollBottom, 50);
-            });
-
-            if (listContainer) {
-                observer.observe(listContainer, { childList: true, subtree: true });
-                // Scroll inicial
-                setTimeout(forceScrollBottom, 50);
-            }
-
-            document.body.addEventListener('htmx:wsError', function(evt) {
-                console.error('WebSocket Error:', evt);
-                setTimeout(() => htmx.trigger('#contenedor-mensajes-lista', 'load'), 5000);
             });
         })();
     </script>

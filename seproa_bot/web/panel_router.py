@@ -20,12 +20,12 @@ load_dotenv()
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
 
 @router.get("/")
-async def dashboard_principal():
+def dashboard_principal():
     return {"vista": "Configuración del Bot", "tabs": ["Configuración", "Conversaciones"]}
 
 @router.get("/conversaciones")
-async def lista_conversaciones(request: Request, db: Session = Depends(get_db)):
-    usuarios = db.query(Usuario).all()
+def lista_conversaciones(request: Request, db: Session = Depends(get_db)):
+    usuarios = db.query(Usuario).order_by(Usuario.id.desc()).all()
     return templates.TemplateResponse(
         request=request, 
         name="conversaciones.html", 
@@ -34,6 +34,7 @@ async def lista_conversaciones(request: Request, db: Session = Depends(get_db)):
 
 @router.websocket("/ws/{channel}")
 async def websocket_endpoint(websocket: WebSocket, channel: str):
+    # El websocket debe ser asíncrono obligatoriamente
     await manager.connect(websocket, channel)
     try:
         while True:
@@ -64,7 +65,7 @@ def sincronizar_cerebro_bot(db: Session):
     validar_y_reconstruir_prompt(config, txt_servicios, txt_faqs, txt_horarios)
 
 @router.get("/config")
-async def ver_panel(request: Request, db: Session = Depends(get_db)):
+def ver_panel(request: Request, db: Session = Depends(get_db)):
     return templates.TemplateResponse(
         request=request, name="config.html", context={
             "config": db.query(ConfiguracionBot).first(),
@@ -76,7 +77,7 @@ async def ver_panel(request: Request, db: Session = Depends(get_db)):
     )
 
 @router.post("/config/save")
-async def guardar_configuracion(
+def guardar_configuracion(
     request: Request,
     tono_id: int = Form(...),
     usa_emojis: bool = Form(None),
@@ -118,44 +119,44 @@ async def guardar_configuracion(
         return RedirectResponse(url="/admin/config?error=1", status_code=303)
 
 @router.post("/servicios/add")
-async def handle_add_servicio(nombre: str = Form(...), descripcion: str = Form(...), db: Session = Depends(get_db)):
+def handle_add_servicio(nombre: str = Form(...), descripcion: str = Form(...), db: Session = Depends(get_db)):
     services.agregar(db, nombre, descripcion)
     sincronizar_cerebro_bot(db)
     return RedirectResponse(url="/admin/config", status_code=303)
 
 @router.post("/servicios/delete/{id}")
-async def handle_del_servicio(id: int, db: Session = Depends(get_db)):
+def handle_del_servicio(id: int, db: Session = Depends(get_db)):
     services.eliminar(db, id)
     sincronizar_cerebro_bot(db)
     return RedirectResponse(url="/admin/config", status_code=303)
 
 @router.post("/horarios/add")
-async def handle_add_horario(dia: str = Form(...), inicio: str = Form(...), fin: str = Form(...), db: Session = Depends(get_db)):
+def handle_add_horario(dia: str = Form(...), inicio: str = Form(...), fin: str = Form(...), db: Session = Depends(get_db)):
     success, msg = horarios.agregar(db, dia, inicio, fin)
     sincronizar_cerebro_bot(db)
     return RedirectResponse(url="/admin/config", status_code=303)
 
 @router.post("/horarios/delete/{id}")
-async def handle_del_horario(id: int, db: Session = Depends(get_db)):
+def handle_del_horario(id: int, db: Session = Depends(get_db)):
     horarios.eliminar(db, id)
     sincronizar_cerebro_bot(db)
     return RedirectResponse(url="/admin/config", status_code=303)
 
 @router.post("/faqs/add")
-async def handle_add_faq(pregunta: str = Form(...), respuesta: str = Form(...), db: Session = Depends(get_db)):
+def handle_add_faq(pregunta: str = Form(...), respuesta: str = Form(...), db: Session = Depends(get_db)):
     faqs.agregar(db, pregunta, respuesta)
     sincronizar_cerebro_bot(db)
     return RedirectResponse(url="/admin/config", status_code=303)
 
 @router.post("/faqs/delete/{id}")
-async def handle_del_faq(id: int, db: Session = Depends(get_db)):
+def handle_del_faq(id: int, db: Session = Depends(get_db)):
     faqs.eliminar(db, id)
     sincronizar_cerebro_bot(db)
     return RedirectResponse(url="/admin/config", status_code=303)
 
 @router.get("/conversaciones/lista-parcial")
 def lista_parcial(request: Request, db: Session = Depends(get_db)):
-    usuarios = db.query(Usuario).all()
+    usuarios = db.query(Usuario).order_by(Usuario.id.desc()).all()
     return templates.TemplateResponse(
         request=request, 
         name="lista_usuarios.html", 
@@ -167,7 +168,8 @@ def ver_detalle(usuario_id: int, request: Request, db: Session = Depends(get_db)
     usuario = db.query(Usuario).filter(Usuario.id == usuario_id).first()
     if not usuario:
         return RedirectResponse(url="/admin/conversaciones")
-    mensajes = db.query(Mensaje).filter(Mensaje.telegram_id == usuario.telegram_id).order_by(Mensaje.id.desc()).limit(30).all()
+    # Cargar solo los últimos 20 mensajes para máxima velocidad
+    mensajes = db.query(Mensaje).filter(Mensaje.telegram_id == usuario.telegram_id).order_by(Mensaje.id.desc()).limit(20).all()
     mensajes.reverse()
     return templates.TemplateResponse(
         request=request, 
@@ -178,9 +180,8 @@ def ver_detalle(usuario_id: int, request: Request, db: Session = Depends(get_db)
 @router.get("/conversaciones/mensajes/{usuario_id}")
 def obtener_solo_mensajes(usuario_id: int, request: Request, db: Session = Depends(get_db)):
     usuario = db.query(Usuario).filter(Usuario.id == usuario_id).first()
-    if not usuario:
-        return ""
-    mensajes = db.query(Mensaje).filter(Mensaje.telegram_id == usuario.telegram_id).order_by(Mensaje.id.desc()).limit(30).all()
+    if not usuario: return ""
+    mensajes = db.query(Mensaje).filter(Mensaje.telegram_id == usuario.telegram_id).order_by(Mensaje.id.desc()).limit(20).all()
     mensajes.reverse() 
     return templates.TemplateResponse(
         request=request, 
@@ -201,22 +202,39 @@ async def tarea_enviar_telegram(chat_id: str, mensaje: str, usuario_id: int):
         print(f"❌ Error en Telegram Background Task: {e}")
 
 @router.post("/conversaciones/intervenir/{usuario_id}")
-async def intervenir(usuario_id: int, request: Request, db: Session = Depends(get_db)):
+def intervenir(usuario_id: int, request: Request, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
     usuario = db.query(Usuario).filter(Usuario.id == usuario_id).first()
     if usuario:
         usuario.esta_intervenido = not usuario.esta_intervenido
+        intervenido = usuario.esta_intervenido
+        telegram_id = usuario.telegram_id
         db.commit()
         
-        # Notificar cambios vía WebSocket para actualización inmediata en UI
-        await manager.broadcast("update", channel=f"chat_{usuario.id}")
-        await manager.broadcast("update", channel="global")
+        # Actualización OOB del Sidebar
+        html_sidebar = f"""
+        <div id="usuario-fila-{usuario_id}" hx-swap-oob="outerHTML" 
+             class="p-4 border-b border-gray-100 hover:bg-gray-50 transition cursor-pointer flex justify-between items-center relative group usuario-sidebar-item"
+             hx-get="/admin/conversaciones/detalle/{usuario_id}" hx-target="#panel-chat-derecho" hx-swap="innerHTML" hx-indicator="#loading-sidebar-{usuario_id}"
+             onclick="desactivarOtrosItems(this)">
+            <div>
+                <p class="font-medium text-gray-800">ID: {telegram_id}</p>
+                <p class="text-xs text-gray-500">Estado: {usuario.estado_conversacion}</p>
+            </div>
+            <div class="flex items-center space-x-2">
+                <div id="loading-sidebar-{usuario_id}" class="htmx-indicator"><svg class="animate-spin h-4 w-4 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg></div>
+                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-opacity-10 {'bg-green-100 text-green-800' if not intervenido else 'bg-red-100 text-red-800'}">
+                    ● {'IA' if not intervenido else 'Humano'}
+                </span>
+            </div>
+        </div>
+        """
+        background_tasks.add_task(manager.broadcast, html_sidebar, "global")
+        background_tasks.add_task(manager.broadcast, "update", f"chat_{usuario_id}")
         
-        print(f"🔌 [UI] Usuario {usuario.id} intervención: {usuario.esta_intervenido}")
-
     return ver_detalle(usuario_id, request, db)
 
 @router.post("/conversaciones/enviar-mensaje")
-async def enviar_mensaje_humano(
+def enviar_mensaje_humano(
     request: Request,
     background_tasks: BackgroundTasks,
     chat_id: str = Form(...), 
@@ -244,8 +262,31 @@ async def enviar_mensaje_humano(
             </div>
         </div>
         """
-        await manager.broadcast(html_mensaje, channel=f"chat_{usuario.id}")
-        await manager.broadcast("update", channel="global")
+        
+        preview = f"[HUMANO]: {mensaje}"[:30] + "..."
+        html_sidebar = f"""
+        <div id="usuario-fila-{usuario.id}" hx-swap-oob="outerHTML" 
+             class="p-4 border-b border-gray-100 hover:bg-gray-50 transition cursor-pointer flex justify-between items-center relative group usuario-sidebar-item"
+             hx-get="/admin/conversaciones/detalle/{usuario.id}" hx-target="#panel-chat-derecho" hx-swap="innerHTML" hx-indicator="#loading-sidebar-{usuario.id}"
+             onclick="desactivarOtrosItems(this)">
+            <div class="flex-1 min-w-0 mr-2">
+                <p class="font-medium text-gray-800 truncate">ID: {chat_id}</p>
+                <p class="text-xs text-gray-400 truncate">{preview}</p>
+            </div>
+            <div class="flex items-center space-x-2">
+                <div id="loading-sidebar-{usuario.id}" class="htmx-indicator"><svg class="animate-spin h-4 w-4 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg></div>
+                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-opacity-10 {'bg-green-100 text-green-800' if not usuario.esta_intervenido else 'bg-red-100 text-red-800'}">
+                    ● {'IA' if not usuario.esta_intervenido else 'Humano'}
+                </span>
+            </div>
+        </div>
+        """
+        
+        # Como estas son operaciones asíncronas de manager.broadcast dentro de una función síncrona, 
+        # necesitamos usar background_tasks o un bucle de eventos, pero FastAPI maneja bien el envío asíncrono
+        # desde hilos si usamos asyncio.run o similar. Para no complicar, usamos background_tasks.
+        background_tasks.add_task(manager.broadcast, html_mensaje, f"chat_{usuario.id}")
+        background_tasks.add_task(manager.broadcast, html_sidebar, "global")
         
         return ver_detalle(usuario.id, request, db)
     except Exception as e:

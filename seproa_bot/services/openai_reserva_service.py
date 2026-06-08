@@ -87,7 +87,8 @@ Solo extrae horas que caigan dentro de estos bloques. Si pide fuera de horario o
             messages=mensajes_api,
             tools=HERRAMIENTA_EXTRACCION,
             tool_choice={"type": "function", "function": {"name": "extraer_datos_cita"}},
-            temperature=0.0 # Reducimos la temperatura a 0 para máxima precisión matemática
+            temperature=0.0, # Reducimos la temperatura a 0 para máxima precisión matemática
+            timeout=25.0
         )
         argumentos = response.choices[0].message.tool_calls[0].function.arguments
         return json.loads(argumentos)

@@ -162,7 +162,8 @@ async def obtener_respuesta_ia_optimizada(historial_mensajes: list) -> str:
             model="gpt-4o-mini",
             messages=mensajes_api,
             temperature=0.3,
-            max_tokens=200
+            max_tokens=200,
+            timeout=20.0
         )
         return response.choices[0].message.content
     except Exception as e:

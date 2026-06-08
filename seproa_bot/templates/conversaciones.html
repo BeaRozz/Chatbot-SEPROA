@@ -7,8 +7,24 @@
     <script src="/static/js/htmx.min.js"></script>
     <script src="/static/js/ws.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .usuario-activo {
+            background-color: #f0f7ff !important;
+            border-left: 4px solid #2563eb !important;
+        }
+    </style>
 </head>
 <body class="bg-gray-50 font-sans">
+    <script>
+        function desactivarOtrosItems(elemento) {
+            // Quitar clase activo de todos
+            document.querySelectorAll('.usuario-sidebar-item').forEach(item => {
+                item.classList.remove('usuario-activo');
+            });
+            // Añadir al seleccionado
+            elemento.classList.add('usuario-activo');
+        }
+    </script>
 
     <div class="flex h-screen w-full" id="main-layout">
         
@@ -25,7 +41,7 @@
             <div id="sidebar-usuarios" 
                  class="flex-1 overflow-y-auto"
                  hx-get="/admin/conversaciones/lista-parcial" 
-                 hx-trigger="load, htmx:wsMessage" 
+                 hx-trigger="load, every 5s" 
                  hx-swap="innerHTML">
                 <p class="p-4 text-sm text-gray-500 animate-pulse">Cargando bandeja de entrada...</p>
             </div>

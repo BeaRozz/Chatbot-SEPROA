@@ -23,11 +23,16 @@ class ConnectionManager:
     async def broadcast(self, message: str, channel: str = "global"):
         """Envía un mensaje a todos los conectados en un canal específico."""
         if channel in self.active_connections:
+            disconnected = []
             for connection in self.active_connections[channel]:
                 try:
                     await connection.send_text(message)
-                except Exception as e:
-                    print(f"⚠️ Error enviando broadcast: {e}")
+                except Exception:
+                    disconnected.append(connection)
+            
+            # Limpiar conexiones muertas encontradas durante el envío
+            for conn in disconnected:
+                self.active_connections[channel].remove(conn)
 
 # Instancia única para todo el servidor
 manager = ConnectionManager()

@@ -26,208 +26,133 @@ def limpiar_emojis(texto: str) -> str:
             texto = texto.replace(e, "")
     return texto
 
-async def procesar_intencion(texto_usuario: str, historial: list, es_nuevo_usuario: bool, chat_id: str, estado_actual: str, db) -> tuple[str, str, dict, str]:
+async def procesar_intencion(texto_usuario: str, historial: list, es_nuevo_usuario: bool, chat_id: str, estado_actual: str) -> tuple[str, str, dict, str]:
     """
     Evalúa la intención del usuario y decide qué motor usar.
-    Retorna: (texto_de_respuesta, accion_especial)
+    Retorna: (texto_de_respuesta, accion_especial, datos_json, nuevo_estado)
     """
     texto_limpio = texto_usuario.lower()
-    
-    # 0. DETECCIÓN DE ATAQUES DE INYECCIÓN (Prompt Injection)
-    if detectar_ataque_inyeccion(texto_usuario):
-        print("🚨 [Seguridad] Intento de Prompt Injection detectado y bloqueado.")
-        # Respuesta estéril corporativa
-        respuesta_segura = "Lo siento, por políticas de seguridad de SEPROA no puedo procesar esa solicitud ni revelar información interna del sistema. ¿En qué más te puedo ayudar respecto a nuestros servicios?"
-        return respuesta_segura, None, None, estado_actual
 
-    # Detectar si estamos de vacaciones
+    # 0. DETECCIÓN DE ATAQUES DE INYECCIÓN
+    if detectar_ataque_inyeccion(texto_usuario):
+        return "Lo siento, por políticas de seguridad de SEPROA no puedo procesar esa solicitud.", None, None, estado_actual
+
+    # 0.1 Detectar vacaciones (Caché RAM)
     vacaciones_activas = getattr(openai_cache, 'VACACIONES_ACTIVAS_CACHED', False)
     fecha_regreso = getattr(openai_cache, 'FECHA_REGRESO_CACHED', None)
 
-    # Si estamos de vacaciones informamos al usuario
     if vacaciones_activas and fecha_regreso:
-        # Desactivar modo vacaciones automáticamente si ya pasó la fecha de regreso
         if date.today() >= fecha_regreso:
-            print("🌅 Las vacaciones terminaron. Apagando modo vacaciones automáticamente...")
-            # from db.models import ConfiguracionBot
-
-            config = db.query(ConfiguracionBot).first()
-            if config:
-                config.modo_vacaciones = False
-                config.fecha_regreso = None
-                db.flush()
-            
-            openai_cache.VACACIONES_ACTIVAS_CACHED = False
-            openai_cache.FECHA_REGRESO_CACHED = None
-
+            # Apagado automático de vacaciones (Sesión local rápida)
+            db = SessionLocal()
+            try:
+                config = db.query(ConfiguracionBot).first()
+                if config:
+                    config.modo_vacaciones = False; config.fecha_regreso = None; db.commit()
+                openai_cache.VACACIONES_ACTIVAS_CACHED = False; openai_cache.FECHA_REGRESO_CACHED = None
+            finally: db.close()
         else:
-            # Aún están de vacaciones, se bloquea el bot completo
-            mensaje_vac = f"Gracias por contactarnos. Actualmente la empresa se encuentra cerrada por periodo de descanso. 🏖️ Estaremos encantados de atenderte a partir del {fecha_regreso.strftime('%d/%m/%Y')}."
+            mensaje_vac = f"Gracias por contactarnos. Actualmente la empresa se encuentra cerrada. 🏖️ Regresamos el {fecha_regreso.strftime('%d/%m/%Y')}."
             return limpiar_emojis(mensaje_vac), None, None, "NORMAL"
 
-    # 0.5 Comando de escape para abortar procesos ("cancelar agendar")
-    if estado_actual == "AGENDANDO" and "cancelar agendar" in texto_limpio:
-        print("🛑 [Estado] El usuario usó el comando de escape para abortar.")
-        return limpiar_emojis("Has cancelado el proceso de agendamiento. 🛑\n¿En qué más te puedo ayudar el día de hoy?"), None, None, "NORMAL"
-
     if es_nuevo_usuario:
-        print("👋 [Ruta] Nuevo Usuario - Saludo Caché")
         return openai_cache.MENSAJE_SALUDO_CACHED, None, None, "NORMAL"
 
     ultimo_mensaje_bot = ""
     if historial:
         for msg in reversed(historial):
             if msg["role"] == "assistant":
-                ultimo_mensaje_bot = msg["content"].lower()
-                break
+                ultimo_mensaje_bot = msg["content"].lower(); break
 
-    # =========================================================================
-    # 1. MÁQUINA DE ESTADOS:
-    # Entra aquí si la BD dice "AGENDANDO" *O* si usó una palabra clave inicial
-    # =========================================================================
+    # 1. MÁQUINA DE ESTADOS (AGENDANDO)
     if estado_actual == "AGENDANDO" or detectar_intencion_transaccional(texto_usuario, ultimo_mensaje_bot):
-        print(f"🔍 [Modo Cita] Estado actual BD: {estado_actual}")
-
         horarios_disponibles = getattr(openai_cache, 'HORARIOS_TEXTO_CACHED', 'Lunes a Viernes de 9:00 a 15:00')
         nombres_servicios = getattr(openai_cache, 'NOMBRES_SERVICIOS_CACHED', ["General"])
-        # 1. Sacamos el JSON de la IA
+
+        # --- LLAMADA EXTERNA (DB LIBRE) ---
         datos = await obtener_extraccion_ia(historial, horarios_disponibles, nombres_servicios)
 
-        intencion = datos.get("intencion")
-        servicio = datos.get("servicio_detectado", "General")
-        fecha = datos.get("fecha")
-        email = datos.get("email")
-        hora = datos.get("hora")
+        intencion = datos.get("intencion"); servicio = datos.get("servicio_detectado", "General")
+        fecha = datos.get("fecha"); email = datos.get("email"); hora = datos.get("hora")
         confirmado = datos.get("confirmacion_final", False)
 
-        # 2. Si solo preguntaba información, se lo devolvemos al cerebro normal
         if intencion == "solo_informacion" and estado_actual != "AGENDANDO":
-            respuesta_llm = await obtener_respuesta_ia_optimizada(historial)
-            return respuesta_llm, "actualizar_clasificacion", datos, "NORMAL"
+            resp_info = await obtener_respuesta_ia_optimizada(historial)
+            # Limpiar etiqueta si la IA la incluyó por error
+            resp_info = resp_info.replace("[ACTIVAR_AGENDA]", "").replace("ACTIVAR_AGENDA", "").strip()
+            return limpiar_emojis(resp_info), "actualizar_clasificacion", datos, "NORMAL"
 
-        nuevo_estado = "AGENDANDO"
+        # Validaciones de tiempo (DB Local Rápida)
+        fecha_invalida = not fecha or str(fecha).lower() in ["null", "none", ""]
+        hora_invalida = not hora or str(hora).lower() in ["null", "none", ""]
 
-        # Validaciones estrictas de formato y lógica para la fecha y hora
-        fecha_invalida = not fecha or str(fecha).strip().lower() in ["null", "none", ""]
-        hora_invalida = not hora or str(hora).strip().lower() in ["null", "none", ""]
-
-        dias_espanol = {0: "Lunes", 1: "Martes", 2: "Miércoles", 3: "Jueves", 4: "Viernes", 5: "Sábado", 6: "Domingo"}
-
-        # Validación 2: Fines de semana
         if not fecha_invalida:
             try:
                 fecha_obj = datetime.strptime(fecha, "%Y-%m-%d")
-                nombre_dia = dias_espanol[fecha_obj.weekday()]
+                dias = {0: "Lunes", 1: "Martes", 2: "Miércoles", 3: "Jueves", 4: "Viernes", 5: "Sábado", 6: "Domingo"}
+                nombre_dia = dias[fecha_obj.weekday()]
 
-                # consultamos el día de la semana en la db
                 db = SessionLocal()
-                horario_dia = db.query(HorarioAtencion).filter(HorarioAtencion.dia_semana == nombre_dia).first()
-                db.close()
+                try:
+                    horario_dia = db.query(HorarioAtencion).filter(HorarioAtencion.dia_semana == nombre_dia).first()
+                    if not horario_dia or not horario_dia.es_laboral:
+                        fecha_invalida = True
+                    elif not hora_invalida:
+                        h_int = int(str(hora).split(":")[0])
+                        if h_int < horario_dia.hora_inicio.hour or h_int >= horario_dia.hora_fin.hour:
+                            hora_invalida = True
+                finally: db.close()
+            except: fecha_invalida = True
 
-                if not horario_dia or not horario_dia.es_laboral:
-                    fecha_invalida = True
-                else:
-                    if not hora_invalida:
-                        try:
-                            hora_int = int(str(hora).split(":")[0])
-                            
-                            # Bloqueamos si pide cita ANTES de abrir o si pide a la HORA DE CIERRE o más tarde
-                            if hora_int < horario_dia.hora_inicio.hour or hora_int >= horario_dia.hora_fin.hour:
-                                hora_invalida = True
-                        except Exception:
-                            hora_invalida = True 
-            except ValueError:
-                fecha_invalida = True
-
-        # 3. Quiere agendar, pero le FALTAN datos
         if fecha_invalida or hora_invalida:
-            respuesta_faltante = (
-                f"Para agendar tu cita de {servicio}, necesito una fecha y hora exactas. 📅\n\n"
-                f"Recuerda nuestras reglas de agenda:\n"
-                f"• Citas de hora en punto (ej. 10:00, 16:00)\n"
-                f"• Al menos 2 horas de anticipación\n"
-                f"• Horarios comerciales: {horarios_disponibles}\n\n"
-                f"¿Qué día y hora prefieres?"
-                f"*(Si deseas salir de este proceso en cualquier momento, escribe **CANCELAR AGENDAR**)*."
-            )
-            return limpiar_emojis(respuesta_faltante), "actualizar_clasificacion", datos, nuevo_estado
-        
-        # 4. Revisar disponibilidad en Google Calendar antes de confirmar la cita
-        print(f"📅 Consultando API de Google Calendar para {fecha} {hora}...")
-        esta_disponible = await verificar_disponibilidad(fecha, hora)
-        
-        if not esta_disponible:
-            print("⚠️ Choque de horario en Google Calendar.")
-            respuesta_choque = f"Lo lamento mucho, pero ya está de reservado el espacio del {fecha} a las {hora}. 📅\n\n¿Te gustaría intentar con otra hora u otro día?"
-            return (limpiar_emojis(respuesta_choque)), "actualizar_clasificacion", datos, nuevo_estado
+            res_f = f"Para agendar tu cita de {servicio}, necesito fecha y hora exacta. 📅\n\nHorarios: {horarios_disponibles}\n¿Qué día prefieres?"
+            return limpiar_emojis(res_f), "actualizar_clasificacion", datos, "AGENDANDO"
 
-        # 5. Pedir  antes de agendar
+        # --- LLAMADA EXTERNA (DB LIBRE) ---
+        if not await verificar_disponibilidad(fecha, hora):
+            return limpiar_emojis(f"Lo lamento, el {fecha} a las {hora} ya está reservado. 📅 ¿Otro horario?"), "actualizar_clasificacion", datos, "AGENDANDO"
+
         if not email:
-            respuesta_correo = f"¡Excelente! Tenemos espacio el {fecha} a las {hora}. 📧 Para enviarte la invitación a tu calendario, ¿cuál es tu correo electrónico?"
-            return limpiar_emojis(respuesta_correo), "actualizar_clasificacion", datos, nuevo_estado
+            return limpiar_emojis(f"¡Espacio libre el {fecha} {hora}! 📧 ¿Cuál es tu correo para la invitación?"), "actualizar_clasificacion", datos, "AGENDANDO"
 
-        # 6. Confirmar la cita
         if not confirmado:
-            respuesta_confirmacion = (
-                f"📋 **RESUMEN DE TU CITA**\n\n"
-                f"🔹 **Servicio:** {servicio}\n"
-                f"📅 **Fecha:** {fecha}\n"
-                f"⏰ **Hora:** {hora}\n"
-                f"📧 **Correo:** {email}\n\n"
-                f"¿Todos los datos son correctos? Responde **'Sí'** para confirmar y agendar formalmente."
-            )
-            return limpiar_emojis(respuesta_confirmacion), "actualizar_clasificacion", datos, nuevo_estado
+            res_c = f"📋 **RESUMEN**\n🔹 Servicio: {servicio}\n📅 Fecha: {fecha}\n⏰ Hora: {hora}\n📧 Correo: {email}\n\n¿Es correcto? Responde **'Sí'**."
+            return limpiar_emojis(res_c), "actualizar_clasificacion", datos, "AGENDANDO"
 
-        # Si hay espacio, lo agendamos directamente desde aquí
-        print("✅ Horario libre. Creando evento en Google...")
-        google_event_id = await agendar_cita_google(fecha, hora, servicio, chat_id, email)
-        datos["google_event_id"] = google_event_id 
+        # --- AGENDAMIENTO FINAL (DB LIBRE) ---
+        google_id = await agendar_cita_google(fecha, hora, servicio, chat_id, email)
+        datos["google_event_id"] = google_id 
 
-        print("📧 Enviando correo al cliente...")
+        # Obtener ubicación (Sesión rápida)
+        ubi = "Calle 65a No. 264, Mérida."
+        db = SessionLocal()
+        try:
+            config = db.query(ConfiguracionBot).first()
+            if config and config.ubicacion_contacto: ubi = config.ubicacion_contacto
+        finally: db.close()
 
-        config = db.query(ConfiguracionBot).first()
-        if config and config.ubicacion_contacto:
-            ubicacion_empresa = config.ubicacion_contacto
-        else:
-            ubicacion_empresa = "Calle 65a No. 264, Residencial Floresta, Mérida, Yucatán."
-
-        await enviar_correo_confirmacion(email, fecha, hora, servicio, ubicacion_empresa)
-
-        respuesta_exito = (
-            f"✅ **¡Tu cita ha sido agendada con éxito en nuestro calendario corporativo!**\n\n"
-            f"**Servicio:** Asesoría {servicio}\n"
-            f"**Fecha:** {fecha}\n"
-            f"**Hora:** {hora}\n\n"
-            f"Te enviaremos un recordatorio 24 horas antes. ¡Te esperamos en SEPROA!"
-        )
-        
-        # Le decimos al webhook que todo salió bien y que guarde en BD
-        return (limpiar_emojis(respuesta_exito)), "guardar_cita_db", datos, "NORMAL"
+        await enviar_correo_confirmacion(email, fecha, hora, servicio, ubi)
+        res_ok = f"✅ **¡Cita agendada con éxito!**\n\nAsesoría: {servicio}\nFecha: {fecha} {hora}\n\n¡Te esperamos!"
+        return limpiar_emojis(res_ok), "guardar_cita_db", datos, "NORMAL"
 
     elif detectar_intencion_ubicacion(texto_usuario):
-        print("🗺️ [Ruta] Ubicación")
-        respuesta = "📍 Nos encontramos ubicados en la Calle 65a No. 264, Residencial Floresta. ¡Te esperamos!"
-        return limpiar_emojis(respuesta), "enviar_mapa", None, estado_actual
+        return "📍 Calle 65a No. 264, Residencial Floresta. ¡Te esperamos!", "enviar_mapa", None, estado_actual
 
     elif detectar_despedida(texto_usuario):
-        print("👋 [Ruta] Despedida Caché")
         return openai_cache.MENSAJE_DESPEDIDA_CACHED, None, None, estado_actual
 
     elif detectar_saludo(texto_usuario):
-        print("🤝 [Ruta] Saludo Caché")
         return openai_cache.MENSAJE_SALUDO_CACHED, None, None, estado_actual
 
     else:
-        print("🧠 [Ruta] Consulta General -> LLM OpenAI")
-        respuesta_llm = await obtener_respuesta_ia_optimizada(historial)
+        # --- LLAMADA EXTERNA (DB LIBRE) ---
+        res_ia = await obtener_respuesta_ia_optimizada(historial)
 
-        if "ACTIVAR_AGENDA" in respuesta_llm:
-            # 1. Borramos la etiqueta secreta para que el usuario no la vea
-            respuesta_limpia = respuesta_llm.replace("[ACTIVAR_AGENDA]", "").strip()            
-            respuesta_limpia_second_check = respuesta_limpia.replace("ACTIVAR_AGENDA", "").strip()
-            
-            # 2. Retornamos la respuesta limpia y ordenamos cambiar el estado de BD a "AGENDANDO"
-            print("🔄 [ORQUESTADOR] El LLM solicitó transición de estado a AGENDANDO.")
-            return limpiar_emojis(respuesta_limpia_second_check), None, None, "AGENDANDO"
-            
-        return limpiar_emojis(respuesta_llm), None, None, estado_actual
+        # Limpieza absoluta de etiquetas de control en cualquier formato
+        res_limpia = res_ia.replace("[ACTIVAR_AGENDA]", "").replace("ACTIVAR_AGENDA", "").strip()
+
+        if "ACTIVAR_AGENDA" in res_ia:
+            print("🔄 [ORQUESTADOR] Transición detectada vía etiqueta.")
+            return limpiar_emojis(res_limpia), None, None, "AGENDANDO"
+
+        return limpiar_emojis(res_limpia), None, None, estado_actual

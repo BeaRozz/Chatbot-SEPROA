@@ -1,5 +1,6 @@
 # main.py
 from fastapi import FastAPI, Request
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.concurrency import asynccontextmanager
 from fastapi.responses import JSONResponse
@@ -57,9 +58,9 @@ scheduler = AsyncIOScheduler()
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # --- Todo lo que está antes del 'yield' ocurre al ENCENDER el servidor ---
-    scheduler.add_job(procesar_recordatorios_24h, 'interval', minutes=1)
+    scheduler.add_job(procesar_recordatorios_24h, 'interval', minutes=30)
     scheduler.start()
-    print("⏰ Programador de recordatorios activado y corriendo en segundo plano.")
+    print("⏰ Programador de recordatorios activado (cada 30 min) y corriendo en segundo plano.")
     
     yield # Aquí el servidor se queda "pausado" funcionando y recibiendo mensajes
     
@@ -69,6 +70,15 @@ async def lifespan(app: FastAPI):
 
 # 4. Inicializar la aplicación de FastAPI
 app = FastAPI(title="SEPROA Chatbot Empresarial", lifespan=lifespan)
+
+# Configurar CORS (Permite conexiones desde cualquier origen para evitar el error 403 en WebSockets)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # Montar archivos estáticos
 app.mount("/static", StaticFiles(directory="static"), name="static")
