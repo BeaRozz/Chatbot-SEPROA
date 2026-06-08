@@ -94,18 +94,33 @@ async def procesar_intencion(texto_usuario: str, historial: list, es_nuevo_usuar
 
                 db = SessionLocal()
                 try:
-                    horario_dia = db.query(HorarioAtencion).filter(HorarioAtencion.dia_semana == nombre_dia).first()
-                    if not horario_dia or not horario_dia.es_laboral:
+                    # Buscamos TODOS los bloques horarios para ese día
+                    horarios_dia = db.query(HorarioAtencion).filter(
+                        HorarioAtencion.dia_semana == nombre_dia,
+                        HorarioAtencion.es_laboral == True
+                    ).all()
+
+                    if not horarios_dia:
                         fecha_invalida = True
                     elif not hora_invalida:
+                        # Validar si la hora cae en AL MENOS UNO de los bloques
                         h_int = int(str(hora).split(":")[0])
-                        if h_int < horario_dia.hora_inicio.hour or h_int >= horario_dia.hora_fin.hour:
-                            hora_invalida = True
+                        m_int = int(str(hora).split(":")[1]) if ":" in str(hora) else 0
+                        hora_solicitada = h_int + (m_int/60)
+
+                        en_bloque = False
+                        for bloque in horarios_dia:
+                            inicio = bloque.hora_inicio.hour + (bloque.hora_inicio.minute/60)
+                            fin = bloque.hora_fin.hour + (bloque.hora_fin.minute/60)
+                            # Regla: La cita dura 1 hora, debe caber antes del fin
+                            if hora_solicitada >= inicio and (hora_solicitada + 1) <= fin:
+                                en_bloque = True; break
+
+                        if not en_bloque: hora_invalida = True
                 finally: db.close()
             except: fecha_invalida = True
-
         if fecha_invalida or hora_invalida:
-            res_f = f"Para agendar tu cita de {servicio}, necesito fecha y hora exacta. 📅\n\nHorarios: {horarios_disponibles}\n¿Qué día prefieres?"
+            res_f = f"Para agendar tu cita de {servicio}, necesito fecha y hora exacta. 📅\n\nHorarios: \n{horarios_disponibles}\n¿Qué día prefieres?"
             return limpiar_emojis(res_f), "actualizar_clasificacion", datos, "AGENDANDO"
 
         # --- LLAMADA EXTERNA (DB LIBRE) ---

@@ -1,18 +1,23 @@
 <div id="panel-chat-contenedor" class="flex flex-col h-full" hx-ext="ws">
+    <!-- Cabecera de Chat Simplificada -->
     <div class="p-4 bg-white border-b border-gray-200 flex justify-between items-center shadow-sm">
         <div>
-            <h3 class="font-bold text-gray-800">Cliente: {{ usuario.telegram_id }}</h3>
-            <p class="text-xs text-gray-500">Estado: {{ usuario.estado_conversacion }}</p>
+            <h3 class="font-bold text-gray-800 flex items-center">
+                <span class="w-2 h-2 rounded-full mr-2 {{ 'bg-green-500 animate-pulse' if not usuario.esta_intervenido else 'bg-red-500' }}"></span>
+                Cliente: {{ usuario.telegram_id }}
+            </h3>
+            <p class="text-xs text-gray-500 font-medium uppercase tracking-wider">
+                {{ '🤖 Asistente IA Activo' if not usuario.esta_intervenido else '👤 Control Manual Humano' }}
+            </p>
         </div>
 
-        <form hx-post="/admin/conversaciones/intervenir/{{ usuario.id }}" hx-target="#panel-chat-derecho">
-            <button type="submit" class="px-4 py-2 text-sm rounded shadow transition font-medium
-                {{ 'bg-red-600 hover:bg-red-700 text-white' if not usuario.esta_intervenido else 'bg-green-600 hover:bg-green-700 text-white' }}">
-                {{ '⛔ Pausar Asistente IA' if not usuario.esta_intervenido else '🤖 Reactivar Asistente IA' }}
-            </button>
-        </form>
+        <div class="text-right">
+            <p class="text-xs text-gray-400">Estado de Flujo</p>
+            <p class="text-sm font-semibold text-blue-600">{{ usuario.estado_conversacion }}</p>
+        </div>
     </div>
 
+    <!-- Lista de Mensajes -->
     <div id="contenedor-mensajes-lista" 
          class="flex-1 overflow-y-auto p-4 space-y-3"
          hx-get="/admin/conversaciones/mensajes/{{ usuario.id }}"
@@ -22,19 +27,72 @@
         <div id="final-del-chat"></div>
     </div>
 
+    <!-- Área de Acción Contextual (Punto 3 UI) -->
+    <div class="p-4 bg-gray-50 border-t border-gray-200 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
+
+        {% if not usuario.esta_intervenido %}
+        <!-- MODO IA: Botón de Intervención prominente -->
+        <div class="flex flex-col items-center justify-center py-2 space-y-3">
+            <div class="text-center">
+                <p class="text-sm text-gray-600 mb-4 italic">"El asistente virtual está gestionando esta conversación..."</p>
+                <form hx-post="/admin/conversaciones/intervenir/{{ usuario.id }}" hx-target="#panel-chat-derecho">
+                    <button type="submit" class="group relative inline-flex items-center justify-center px-8 py-3 font-bold text-white transition-all duration-200 bg-blue-600 font-pj rounded-xl focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-600 hover:bg-blue-700 shadow-lg">
+                        <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
+                        Intervenir y Escribir Manualmente
+                    </button>
+                </form>
+            </div>
+        </div>
+        {% else %}
+        <!-- MODO HUMANO: Teclado Abierto -->
+        <div class="space-y-4">
+            <div class="flex items-center justify-between">
+                <span class="text-xs font-bold text-red-600 flex items-center uppercase tracking-widest">
+                    <span class="flex h-2 w-2 mr-2">
+                      <span class="animate-ping absolute inline-flex h-2 w-2 rounded-full bg-red-400 opacity-75"></span>
+                      <span class="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
+                    </span>
+                    Modo Manual Activo
+                </span>
+                <form hx-post="/admin/conversaciones/intervenir/{{ usuario.id }}" hx-target="#panel-chat-derecho">
+                    <button type="submit" class="text-xs text-blue-600 hover:text-blue-800 font-bold flex items-center transition-colors">
+                        <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                        Regresar el control a la IA
+                    </button>
+                </form>
+            </div>
+
+            <form hx-post="/admin/conversaciones/enviar-mensaje" 
+                  hx-target="#panel-chat-derecho" 
+                  hx-indicator="#loading-spinner"
+                  hx-on::after-request="if(event.detail.successful) this.reset()"
+                  class="flex space-x-3">
+                <input type="hidden" name="chat_id" value="{{ usuario.telegram_id }}">
+                <div class="flex-1 relative">
+                    <input type="text" name="mensaje" id="input-mensaje" 
+                           placeholder="Escribe tu respuesta aquí..." autofocus required
+                           class="w-full border-2 border-blue-100 rounded-2xl px-5 py-3 text-sm focus:outline-none focus:border-blue-500 transition-all bg-white shadow-inner">
+                </div>
+                <button type="submit" class="bg-blue-600 text-white px-6 py-3 rounded-2xl hover:bg-blue-700 transition-all shadow-md font-bold flex items-center group">
+                    <span class="htmx-indicator-hide group-hover:translate-x-1 transition-transform">Enviar 🚀</span>
+                    <svg id="loading-spinner" class="animate-spin h-5 w-5 htmx-indicator" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" style="display: none;">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                </button>
+            </form>
+        </div>
+        {% endif %}
+    </div>
+
     <script>
         (function() {
             const listContainer = document.getElementById('contenedor-mensajes-lista');
-            
             const forceScrollBottom = () => {
                 if (!listContainer) return;
                 listContainer.scrollTop = listContainer.scrollHeight;
             };
-
-            // Scroll al cargar
             setTimeout(forceScrollBottom, 50);
-
-            // Scroll en cada actualización de HTMX (Polling)
             document.body.addEventListener('htmx:afterSettle', function(evt) {
                 if (evt.detail.target.id === 'contenedor-mensajes-lista') {
                     forceScrollBottom();
@@ -42,25 +100,6 @@
             });
         })();
     </script>
-
-
-<div class="p-4 bg-white border-t border-gray-200">
-    <form hx-post="/admin/conversaciones/enviar-mensaje" 
-          hx-target="#panel-chat-derecho" 
-          hx-indicator="#loading-spinner"
-          hx-on::after-request="if(event.detail.successful) this.reset()"
-          class="flex space-x-2">
-        <input type="hidden" name="chat_id" value="{{ usuario.telegram_id }}">
-        <input type="text" name="mensaje" id="input-mensaje" placeholder="Escribe un mensaje directo a Telegram..." required
-               class="flex-1 border border-gray-300 rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
-        <button type="submit" class="bg-gray-800 text-white px-4 py-2 text-sm rounded-lg hover:bg-gray-900 transition font-medium flex items-center disabled:opacity-50">
-            <span class="htmx-indicator-hide">Enviar</span>
-            <svg id="loading-spinner" class="animate-spin h-4 w-4 ml-2 htmx-indicator" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" style="display: none;">
-                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-            </svg>
-        </button>
-    </form>
 </div>
 
 <style>

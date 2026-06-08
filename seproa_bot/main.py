@@ -35,8 +35,12 @@ try:
     txt_servicios = "\n".join([f"• {s.nombre}: {s.descripcion.strip()}" for s in servicios_db]) or "Sin servicios registrados."
     txt_faqs = "\n\n".join([f"P: {f.pregunta}\nR: {f.respuesta}" for f in faqs_db]) or "Sin FAQs registradas."
     
+    # Ordenar horarios: Lunes a Domingo y por Hora
+    orden_dias = {"Lunes": 0, "Martes": 1, "Miércoles": 2, "Jueves": 3, "Viernes": 4, "Sábado": 5, "Domingo": 6}
+    horarios_ordenados = sorted(horarios_db, key=lambda x: (orden_dias.get(x.dia_semana, 99), x.hora_inicio))
+    
     arr_horarios = []
-    for h in horarios_db:
+    for h in horarios_ordenados:
         if h.es_laboral and h.hora_inicio and h.hora_fin:
             arr_horarios.append(f"- {h.dia_semana}: {h.hora_inicio.strftime('%H:%M')} a {h.hora_fin.strftime('%H:%M')}")
         else:

@@ -1,9 +1,30 @@
 {% for msg in mensajes %}
     <div class="flex flex-col {{ 'items-end' if msg.rol == 'bot' else 'items-start' }}">
-        <div class="max-w-md px-4 py-2 rounded-lg shadow-sm text-sm
-            {{ 'bg-blue-600 text-white rounded-br-none' if msg.rol == 'bot' else 'bg-white text-gray-800 rounded-bl-none border border-gray-200' }}">
+        <div class="max-w-md px-4 py-2 rounded-2xl shadow-sm text-sm markdown-content
+            {{ 'bg-blue-600 text-white rounded-br-none' if msg.rol == 'bot' else 'bg-white text-gray-800 rounded-bl-none border-2 border-blue-50' }}">
             {{ msg.contenido }}
         </div>
-        <span class="text-xxs text-gray-400 mt-1 px-1">Rol: {{ msg.rol }}</span>
+        <span class="text-[10px] text-gray-400 mt-1 px-2 uppercase font-bold tracking-tighter">
+            {{ '🤖 Asistente' if msg.rol == 'bot' else '👤 Usuario' }}
+        </span>
     </div>
 {% endfor %}
+
+<script>
+    // Renderizar Markdown en cada burbuja al cargar o actualizar
+    (function() {
+        document.querySelectorAll('.markdown-content').forEach(el => {
+            // Solo procesar si no ha sido renderizado antes para evitar bucles
+            if (!el.dataset.rendered) {
+                const rawText = el.innerText;
+                el.innerHTML = marked.parse(rawText);
+                el.dataset.rendered = "true";
+                
+                // Ajustar estilos internos de markdown para coherencia visual
+                el.querySelectorAll('p').forEach(p => p.classList.add('mb-2', 'last:mb-0'));
+                el.querySelectorAll('strong').forEach(s => s.classList.add('font-bold'));
+                el.querySelectorAll('ul').forEach(ul => ul.classList.add('list-disc', 'ml-4', 'mb-2'));
+            }
+        });
+    })();
+</script>

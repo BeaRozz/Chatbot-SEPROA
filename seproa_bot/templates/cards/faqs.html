@@ -1,25 +1,36 @@
-<div class="card shadow-sm mb-4">
-    <div class="card-header bg-info text-white">Gestión de FAQs</div>
-    <div class="card-body">
-        <ul class="list-group mb-3">
+<div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden h-full flex flex-col">
+    <div class="bg-blue-600 px-6 py-4">
+        <h3 class="text-lg font-bold text-white flex items-center">
+            <svg class="w-5 h-5 mr-2 text-blue-100" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+            Gestión de FAQs
+        </h3>
+    </div>
+    <div class="p-6 flex-1 overflow-y-auto">
+        <div class="space-y-4 mb-6">
             {% for f in faqs %}
-            <li class="list-group-item">
-                <div class="d-flex justify-content-between align-items-center">
-                    <div>
-                        <strong>P: {{ f.pregunta }}</strong><br>
-                        <small class="text-muted">R: {{ f.respuesta }}</small>
-                    </div>
-                    <form action="/admin/faqs/delete/{{ f.id }}" method="POST">
-                        <button class="btn btn-sm btn-outline-danger">Eliminar</button>
-                    </form>
+            <div class="p-4 bg-gray-50 rounded-xl border border-gray-100 flex justify-between items-start group">
+                <div class="flex-1 min-w-0">
+                    <p class="font-bold text-gray-900 text-sm">{{ f.pregunta }}</p>
+                    <p class="text-xs text-gray-600 mt-1 leading-relaxed">{{ f.respuesta }}</p>
                 </div>
-            </li>
+                <form action="/admin/faqs/delete/{{ f.id }}" method="POST" class="ml-4">
+                    <button class="text-gray-400 hover:text-red-600 transition-colors p-1" title="Eliminar FAQ">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-4v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                    </button>
+                </form>
+            </div>
             {% endfor %}
-        </ul>
-        <form action="/admin/faqs/add" method="POST" class="row g-2">
-            <div class="col-md-5"><input name="pregunta" class="form-control" placeholder="Pregunta" required></div>
-            <div class="col-md-5"><input name="respuesta" class="form-control" placeholder="Respuesta" required></div>
-            <div class="col-md-2"><button class="btn btn-info text-white w-100">+</button></div>
+        </div>
+    </div>
+    <div class="p-6 bg-gray-50 border-t border-gray-200">
+        <form action="/admin/faqs/add" method="POST" class="space-y-3">
+            <input name="pregunta" placeholder="Pregunta frecuente" required 
+                   class="w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm">
+            <div class="flex space-x-2">
+                <input name="respuesta" placeholder="Respuesta de la IA" required 
+                       class="flex-1 rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm">
+                <button class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 shadow-md font-bold">+</button>
+            </div>
         </form>
     </div>
 </div>

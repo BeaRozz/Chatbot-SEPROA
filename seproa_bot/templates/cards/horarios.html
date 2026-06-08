@@ -1,33 +1,61 @@
-<div class="card shadow-sm mb-4">
-    <div class="card-header bg-info text-white">Gestión de Horarios</div>
-    <div class="card-body">
-        <table class="table table-sm text-center">
-            <thead><tr><th>Día</th><th>Inicio</th><th>Fin</th><th>Acción</th></tr></thead>
-            <tbody>
-                {% for h in horarios %}
-                <tr>
-                    <td>{{ h.dia_semana }}</td>
-                    <td>{{ h.hora_inicio.strftime('%H:%M') }}</td>
-                    <td>{{ h.hora_fin.strftime('%H:%M') }}</td>
-                    <td>
-                        <form action="/admin/horarios/delete/{{ h.id }}" method="POST">
-                            <button class="btn btn-sm btn-outline-danger">X</button>
-                        </form>
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-        <form action="/admin/horarios/add" method="POST" class="row g-2">
-            <div class="col-md-3">
-                <select name="dia" class="form-select" required>
+<div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+    <div class="bg-amber-500 px-6 py-4">
+        <h3 class="text-lg font-bold text-white flex items-center">
+            <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+            Horarios de Atención
+        </h3>
+    </div>
+    <div class="p-6">
+        <div class="overflow-x-auto">
+            <table class="w-full text-sm text-left text-gray-500 mb-6">
+                <thead class="text-xs text-gray-700 uppercase bg-gray-50">
+                    <tr>
+                        <th class="px-4 py-3">Día</th>
+                        <th class="px-4 py-3 text-center">Apertura</th>
+                        <th class="px-4 py-3 text-center">Cierre</th>
+                        <th class="px-4 py-3 text-right">Acción</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100">
+                    {% for h in horarios %}
+                    <tr class="hover:bg-gray-50 transition-colors">
+                        <td class="px-4 py-3 font-semibold text-gray-900">{{ h.dia_semana }}</td>
+                        <td class="px-4 py-3 text-center">{{ h.hora_inicio.strftime('%H:%M') }}</td>
+                        <td class="px-4 py-3 text-center">{{ h.hora_fin.strftime('%H:%M') }}</td>
+                        <td class="px-4 py-3 text-right">
+                            <form action="/admin/horarios/delete/{{ h.id }}" method="POST">
+                                <button class="text-red-400 hover:text-red-600 transition-colors">
+                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-4v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                                </button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <form action="/admin/horarios/add" method="POST" class="grid grid-cols-1 md:grid-cols-4 gap-4 p-4 bg-gray-50 rounded-xl border border-gray-200">
+            <div>
+                <label class="block text-xs font-bold text-gray-500 mb-1">Día</label>
+                <select name="dia" class="w-full rounded-lg border-gray-300 text-sm focus:ring-amber-500 focus:border-amber-500">
                     <option>Lunes</option><option>Martes</option><option>Miércoles</option>
-                    <option>Jueves</option><option>Viernes</option><option>Sábado</option>
+                    <option>Jueves</option><option>Viernes</option><option>Sábado</option><option>Domingo</option>
                 </select>
             </div>
-            <div class="col-md-3"><input type="time" name="inicio" class="form-control" required></div>
-            <div class="col-md-3"><input type="time" name="fin" class="form-control" required></div>
-            <div class="col-md-3"><button class="btn btn-primary w-100">Agregar</button></div>
+            <div>
+                <label class="block text-xs font-bold text-gray-500 mb-1">Abre</label>
+                <input type="time" name="inicio" required class="w-full rounded-lg border-gray-300 text-sm focus:ring-amber-500 focus:border-amber-500">
+            </div>
+            <div>
+                <label class="block text-xs font-bold text-gray-500 mb-1">Cierra</label>
+                <input type="time" name="fin" required class="w-full rounded-lg border-gray-300 text-sm focus:ring-amber-500 focus:border-amber-500">
+            </div>
+            <div class="flex items-end">
+                <button class="w-full bg-amber-500 text-white px-4 py-2 rounded-lg hover:bg-amber-600 shadow-md font-bold transition-all">
+                    Añadir Horario
+                </button>
+            </div>
         </form>
     </div>
 </div>

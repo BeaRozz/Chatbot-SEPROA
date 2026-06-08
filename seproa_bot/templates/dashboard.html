@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SEPROA Command Center</title>
+    <script src="/static/js/htmx.min.js"></script>
+    <script src="/static/js/ws.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .sidebar-item-active {
+            background-color: rgba(255,255,255,0.1);
+            border-right: 4px solid #3b82f6;
+        }
+        .usuario-activo {
+            background-color: #f0f7ff !important;
+            border-left: 4px solid #2563eb !important;
+        }
+        /* Estilo scrollbar */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+    </style>
+</head>
+<body class="bg-gray-50 flex h-screen overflow-hidden">
+
+    <!-- Sidebar Maestro -->
+    <aside class="w-20 lg:w-64 bg-slate-900 text-white flex flex-col transition-all duration-300">
+        <div class="p-6 border-b border-slate-800 flex items-center space-x-3">
+            <div class="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center font-bold">S</div>
+            <span class="font-bold text-xl lg:block hidden">SEPROA</span>
+        </div>
+
+        <nav class="flex-1 mt-6 space-y-2">
+            <button hx-get="/admin/conversaciones" 
+                    hx-target="#main-content" 
+                    hx-push-url="true"
+                    class="w-full flex items-center p-4 hover:bg-slate-800 transition-colors group nav-btn"
+                    onclick="setActive(this)">
+                <svg class="w-6 h-6 mr-3 text-slate-400 group-hover:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"></path></svg>
+                <span class="lg:block hidden font-medium">Conversaciones</span>
+            </button>
+
+            <button hx-get="/admin/config" 
+                    hx-target="#main-content" 
+                    hx-push-url="true"
+                    class="w-full flex items-center p-4 hover:bg-slate-800 transition-colors group nav-btn"
+                    onclick="setActive(this)">
+                <svg class="w-6 h-6 mr-3 text-slate-400 group-hover:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.756 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                <span class="lg:block hidden font-medium">Configuración</span>
+            </button>
+        </nav>
+
+        <div class="p-6 border-t border-slate-800 text-xs text-slate-500 lg:block hidden">
+            SEPROA v1.0.0
+        </div>
+    </aside>
+
+    <!-- Contenido Principal Dinámico -->
+    <main id="main-content" class="flex-1 flex flex-col h-full bg-slate-50 overflow-y-auto">
+        {% if child_template %}
+            {% include child_template %}
+        {% else %}
+            <!-- Estado inicial (Placeholder) -->
+            <div class="flex items-center justify-center h-full text-slate-400">
+                <div class="text-center">
+                    <div class="animate-pulse mb-4 font-bold text-lg text-slate-600">SEPROA Command Center</div>
+                    <p class="text-sm">Selecciona una opción del menú lateral para comenzar</p>
+                </div>
+            </div>
+        {% endif %}
+    </main>
+
+    <script>
+        function setActive(el) {
+            document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.remove('sidebar-item-active'));
+            el.classList.add('sidebar-item-active');
+        }
+
+        // Al cargar la página, resaltar el botón correcto basado en la URL
+        document.addEventListener('DOMContentLoaded', () => {
+            const currentPath = window.location.pathname;
+            document.querySelectorAll('.nav-btn').forEach(btn => {
+                if (btn.getAttribute('hx-get') === currentPath) {
+                    setActive(btn);
+                }
+            });
+        });
+    </script>
+</body>
+</html>

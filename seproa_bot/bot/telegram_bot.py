@@ -133,8 +133,11 @@ async def telegram_webhook(request: Request):
 
         await manager.broadcast(html_sidebar_final, channel="global")
         await manager.broadcast(html_respuesta_oob, channel=f"chat_{usuario_id}")
-        if accion == "enviar_mapa":
-            await http_client.post(f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendLocation", json={"chat_id": chat_id_int, "latitude": 21.0136630685485, "longitude": -89.55584020754324})
+        # Acciones extra (Mapas y Ubicación)
+        if accion in ["enviar_mapa", "guardar_cita_db"]:
+            print(f"📍 [WEBHOOK] Enviando ubicación a {chat_id}...")
+            await http_client.post(f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendLocation", 
+                                   json={"chat_id": chat_id_int, "latitude": 21.0136630685485, "longitude": -89.55584020754324})
 
     except Exception as e:
         print(f"🔥 [WEBHOOK] ERROR CRÍTICO: {e}")
